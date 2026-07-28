@@ -19,8 +19,14 @@
 7. **Informa contradicciones antes de resolverlas.** Si dos documentos se contradicen, cita ambos,
    propón una resolución y espera confirmación. No elijas en silencio.
 
-## Estado actual: fase de diseño
+## Estado actual: stack decidido, sin código
 
-No implementes todavía Next.js, PostgreSQL, Docker, autenticación, JWT, migraciones, tiempo real,
-integración con GitHub, captura de agentes/tokens, pagos ni microservicios.
+El stack está **decidido** en los ADR-004 a ADR-008 (Next.js, PostgreSQL, Drizzle, Better Auth,
+Node.js, Docker, Vitest/Playwright) y resumido en
+[`docs/TECHNICAL-FOUNDATION.md`](docs/TECHNICAL-FOUNDATION.md).
+
+**Decidido no es autorizado a crearse.** No crees todavía `package.json`, andamiaje de framework,
+Docker, migraciones, esquema, autenticación funcional ni interfaz. Tampoco tiempo real, integración
+con GitHub, captura de agentes/tokens, pagos ni microservicios.
+
 La lista viva de restricciones está en [`AGENTS.md`](AGENTS.md) §5.

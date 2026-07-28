@@ -72,10 +72,32 @@ sobre solicitudes, cambio de sesión atómico y restablecimiento de contraseña.
 Elegir y registrar en ADRs: lenguaje y framework, motor de persistencia, mecanismo de sesión,
 estrategia de despliegue, enfoque de pruebas.
 
-`OD-07` ya está cerrada (UTC + zona IANA del workspace), así que el esquema tiene su base temporal
-definida. Lo que queda por decidir aquí es técnico, no de producto.
+Resultado: **ADR-004 a ADR-008**, más [`TECHNICAL-FOUNDATION.md`](TECHNICAL-FOUNDATION.md),
+[`ENVIRONMENTS.md`](ENVIRONMENTS.md) y [`TESTING.md`](TESTING.md).
 
-*Terminado cuando:* existen ADR-004 a ADR-008 y ninguna decisión técnica queda implícita.
+Stack: Next.js 16 App Router · TypeScript estricto · Tailwind 4 · shadcn/ui copiado ·
+PostgreSQL 18 · Drizzle 0.45 con migraciones SQL versionadas · Better Auth 1.6 con sesiones en base ·
+Node.js 24 LTS · Docker `standalone` · Vitest y Playwright contra PostgreSQL real.
+
+**Estado: completa.** Los diez puntos de la prueba de compatibilidad conceptual se cumplen
+([`TECHNICAL-FOUNDATION.md`](TECHNICAL-FOUNDATION.md) §4).
+
+### Iteración 1.5 — Cimentación ejecutable
+
+**Nueva.** Antes se asumía que la iteración 2 empezaría creando el proyecto *y* el aislamiento a la
+vez; son dos cosas distintas y mezclarlas oculta los fallos de cada una.
+
+Andamiaje mínimo, sin dominio: `package.json`, TypeScript estricto, disposición modular de
+`ADR-004` §3.3 con sus reglas de linting, Docker Compose con PostgreSQL, conexión Drizzle,
+configuración validada con Zod, primera migración vacía, Vitest con base desechable, Dockerfile
+`standalone`, CI.
+
+Resuelve además las seis verificaciones pendientes de
+[`TECHNICAL-FOUNDATION.md`](TECHNICAL-FOUNDATION.md) §5 (T-1…T-6).
+
+*Terminado cuando:* la aplicación arranca en local, la imagen se construye y arranca en CI, una
+prueba de integración de ejemplo corre contra PostgreSQL real en base desechable, y una importación
+que cruce a `internal/` de otro módulo **falla la compilación**.
 
 ### Iteración 2 — Aislamiento y acceso
 
@@ -138,7 +160,8 @@ completa, estados de error, comportamiento sin conexión, accesibilidad básica.
 graph LR
     I0[0 · Fundación] --> I01[0.1 · Normalización]
     I01 --> I1[1 · Decisiones técnicas]
-    I1 --> I2[2 · Aislamiento]
+    I1 --> I15[1.5 · Cimentación]
+    I15 --> I2[2 · Aislamiento]
     I2 --> I3[3 · Registro]
     I3 --> I4[4 · Publicación]
     I4 --> I5[5 · App cliente]
@@ -155,8 +178,9 @@ iteración 8 obliga a rehacer las capas intermedias.
 
 | Debe cerrarse antes de | Decisiones |
 |---|---|
-| Iteración 1 | *(ninguna: `OD-07` se cerró en la 0.1)* |
-| Iteración 2 | *(ninguna: `OD-02` y `OD-11` se cerraron en la 0.1)* |
+| Iteración 1 | *(ninguna: `OD-07` se cerró en la 0.1)* — **completada** |
+| Iteración 1.5 | *(ninguna)* |
+| Iteración 2 | `OD-18` Row-Level Security como refuerzo — decidible dentro de la propia iteración |
 | Iteración 3 | *(ninguna: `OD-08` se cerró en la 0.1)* |
 | Iteración 4 | `OD-01` agregación de horas · `OD-04` despublicar |
 | Iteración 5 | `OD-12` retención de auditoría · `OD-17` visibilidad entre clientes |
@@ -170,7 +194,9 @@ iteración 8 obliga a rehacer las capas intermedias.
 
 | Riesgo | Impacto | Mitigación |
 |---|---|---|
-| Fuga entre workspaces | Crítico: destruye la confianza del cliente | Iteración 2 primero, con pruebas de aislamiento como criterio de terminado |
+| Fuga entre workspaces | Crítico: destruye la confianza del cliente | Iteración 2 pronto, con las pruebas de aislamiento de [`ADR-008`](decisions/ADR-008-testing-strategy.md) §3.5 como criterio de terminado |
+| Drizzle sigue por debajo de 1.0 y su 1.0 es una reescritura | Medio | Versión exacta `0.45.x`; migraciones en SQL plano: sustituir la capa de acceso no movería datos ([`ADR-005`](decisions/ADR-005-persistence-and-migrations.md) §3.2.1) |
+| Next.js y Better Auth orbitan al mismo actor | Medio | Sin funciones de plataforma; Better Auth solo para autenticación, tras `identity` ([`ADR-006`](decisions/ADR-006-authentication-and-sessions.md) §4.1) |
 | Publicar algo interno por descuido | Alto | Vista previa obligatoria, bloqueo de publicación con enlaces internos, glifos de visibilidad siempre a la vista |
 | Fricción en el registro de tiempo | Alto: si molesta, no se usa, y sin datos no hay producto | Criterio E4: iniciar en dos interacciones; preselección agresiva |
 | El cliente nunca entra | Medio: el valor se evapora | Resumen que se entiende en 10 segundos; revisar `OD-09` si no vuelve |

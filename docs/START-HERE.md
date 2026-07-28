@@ -22,9 +22,11 @@ Cinco frases que resumen el diseño:
 
 ## 2. Estado del proyecto
 
-**Fase de diseño documental — iteración 0.1 completa.** No hay código. Ver
-[`CURRENT-STATE.md`](CURRENT-STATE.md) para el estado exacto y la lista de decisiones abiertas
-(`OD-xx`).
+**Iteración 1 completa: stack técnico decidido.** Sigue sin haber código de producto: no hay
+`package.json`, ni dependencias, ni esquema, ni contenedores. Lo que existe es la fundación
+documental (iteraciones 0 y 0.1) y las decisiones técnicas (ADR-004 a ADR-008).
+
+Ver [`CURRENT-STATE.md`](CURRENT-STATE.md) para el estado exacto y las decisiones abiertas (`OD-xx`).
 
 ## 3. Índice de documentos
 
@@ -40,13 +42,26 @@ Cinco frases que resumen el diseño:
 | [`CURRENT-STATE.md`](CURRENT-STATE.md) | ¿Qué existe hoy? ¿Qué está abierto? | **Siempre, al empezar** |
 | [`decisions/`](decisions/) | ¿Por qué se decidió así? | Antes de cuestionar una decisión estructural |
 
+### Documentos técnicos *(iteración 1)*
+
+| Documento | Responde a | Léelo cuando |
+|---|---|---|
+| [`TECHNICAL-FOUNDATION.md`](TECHNICAL-FOUNDATION.md) | ¿Cuál es el stack y encaja con el producto? | Antes de escribir la primera línea de código |
+| [`ENVIRONMENTS.md`](ENVIRONMENTS.md) | ¿Cómo se configura cada entorno? | Al tocar configuración, base de datos o despliegue |
+| [`TESTING.md`](TESTING.md) | ¿Cómo se prueba y qué debe existir? | Al escribir cualquier prueba |
+
 ### ADRs
 
 | ADR | Decisión |
 |---|---|
-| [`ADR-001-modular-monolith.md`](decisions/ADR-001-modular-monolith.md) | Monolito modular, no microservicios |
-| [`ADR-002-workspace-boundary.md`](decisions/ADR-002-workspace-boundary.md) | El workspace es la frontera de autorización |
-| [`ADR-003-client-interaction.md`](decisions/ADR-003-client-interaction.md) | El cliente escribe en canales propios, nunca en el registro |
+| [`ADR-001`](decisions/ADR-001-modular-monolith.md) | Monolito modular, no microservicios |
+| [`ADR-002`](decisions/ADR-002-workspace-boundary.md) | El workspace es la frontera de autorización |
+| [`ADR-003`](decisions/ADR-003-client-interaction.md) | El cliente escribe en canales propios, nunca en el registro |
+| [`ADR-004`](decisions/ADR-004-application-stack.md) | Next.js App Router, TypeScript estricto, Tailwind, shadcn/ui |
+| [`ADR-005`](decisions/ADR-005-persistence-and-migrations.md) | PostgreSQL, Drizzle ORM, migraciones SQL versionadas |
+| [`ADR-006`](decisions/ADR-006-authentication-and-sessions.md) | Better Auth, sesiones en base, sin JWT ni caché de sesión |
+| [`ADR-007`](decisions/ADR-007-runtime-and-deployment.md) | Node.js LTS, Next standalone, Docker, sin plataforma obligatoria |
+| [`ADR-008`](decisions/ADR-008-testing-strategy.md) | Vitest, PostgreSQL real, Playwright, aislamiento obligatorio |
 
 ## 4. Enrutado por tipo de tarea
 
@@ -55,8 +70,13 @@ Cinco frases que resumen el diseño:
 | Añadir una funcionalidad | `PRODUCT-SCOPE.md` → `USER-FLOWS.md` → `DATA-MODEL.md` |
 | Cambiar quién ve qué | `ROLES-AND-PERMISSIONS.md` → `ADR-002` → `ADR-003` |
 | Diseñar una pantalla | `INFORMATION-ARCHITECTURE.md` → `UI-WIREFRAMES.md` |
-| Modelar datos | `DATA-MODEL.md` → `ADR-001` |
+| Modelar datos | `DATA-MODEL.md` → `ADR-001` → `ADR-005` |
 | Priorizar trabajo | `MVP-PLAN.md` → `CURRENT-STATE.md` |
+| Escribir código por primera vez | `TECHNICAL-FOUNDATION.md` → `ADR-004` → `ADR-007` |
+| Tocar la base de datos o una migración | `ADR-005` → `DATA-MODEL.md` §8 |
+| Tocar sesiones o inicio de sesión | `ADR-006` → `ROLES-AND-PERMISSIONS.md` §9 |
+| Escribir una prueba | `TESTING.md` → `ADR-008` |
+| Configurar un entorno | `ENVIRONMENTS.md` → `ADR-007` |
 | Resolver una contradicción | `CURRENT-STATE.md` → **detente y pregunta** |
 
 ## 5. Glosario
@@ -80,6 +100,10 @@ Cinco frases que resumen el diseño:
 | **OD-xx** | Decisión abierta, sin resolver. Listadas en `CURRENT-STATE.md` §6. |
 | **D-xx** | Decisión de producto ya adoptada. `CURRENT-STATE.md` §5. |
 | **K-xx** | Contradicción detectada y su resolución. `CURRENT-STATE.md` §7. |
+| **A1–A8** | Reglas verificables de aislamiento por workspace. `ADR-002` §Reglas verificables. |
+| **C1–C9** | Reglas verificables de interacción del cliente. `ADR-003`. |
+| **T4-x … T8-x** | Reglas y criterios verificables de las decisiones técnicas. `ADR-004`…`ADR-008`. |
+| **WorkspaceScope** | Contexto obligatorio (workspace + actor + transacción) que reciben las funciones de acceso a datos. Sin él no se consulta. `ADR-005` §3.6. |
 
 ## 6. Reglas de oro
 

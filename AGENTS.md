@@ -10,7 +10,9 @@ Cursor, Aider u otros). No depende de ninguna herramienta concreta.
 `nj-worktrace` es una aplicación personal multiespacio para registrar trabajo (tiempo,
 funcionalidades, resultados, evidencias, reuniones) y compartir una vista controlada con clientes.
 
-**Fase actual: diseño documental.** No hay código de producto.
+**Fase actual: iteración 1 cerrada — producto y stack decididos, sin código todavía.**
+No existe `package.json`, ni dependencias, ni esquema, ni contenedores.
+La siguiente iteración (1.5) creará el andamiaje ejecutable **cuando el usuario lo autorice**.
 
 ## 2. Orden de lectura obligatorio
 
@@ -19,7 +21,8 @@ funcionalidades, resultados, evidencias, reuniones) y compartir una vista contro
 | 1 | `docs/START-HERE.md` | Mapa e índice de toda la documentación |
 | 2 | `docs/CURRENT-STATE.md` | Qué existe hoy, qué está decidido, qué está abierto |
 | 3 | `docs/PRODUCT-SCOPE.md` | Límites del producto: dentro / fuera |
-| 4 | El documento específico de tu tarea | Ver tabla de enrutado en `START-HERE.md` |
+| 4 | `docs/TECHNICAL-FOUNDATION.md` | Stack decidido y su compatibilidad — **si la tarea toca código** |
+| 5 | El documento específico de tu tarea | Ver tabla de enrutado en `START-HERE.md` |
 
 ## 3. Principios de trabajo
 
@@ -47,23 +50,39 @@ Un cambio está terminado cuando:
 - [ ] Las decisiones abiertas nuevas están numeradas `OD-xx` y referenciadas desde donde surgen.
 - [ ] Se ha listado explícitamente qué quedó sin resolver.
 
-## 5. Restricciones actuales (fase de diseño)
+## 5. Restricciones actuales
+
+### 5.1 Vigentes hasta que el usuario autorice la iteración 1.5
 
 **No hagas** nada de lo siguiente sin instrucción explícita y nueva del usuario:
 
-- Instalar dependencias o crear `package.json`.
-- Crear una aplicación Next.js o cualquier scaffold de framework.
-- Crear migraciones o esquemas SQL ejecutables.
-- Implementar autenticación, sesiones o JWT.
-- Configurar Docker o infraestructura.
+- Crear `package.json` o instalar dependencias.
+- Ejecutar `create-next-app` o cualquier andamiaje de framework.
+- Crear Docker Compose, Dockerfile o configuración de infraestructura.
+- Crear migraciones, tablas o esquema ejecutable.
+- Implementar Better Auth, sesiones o cualquier autenticación funcional.
+- Crear componentes o interfaz.
+
+Que el stack esté **decidido** (ADR-004…008) no significa que esté **autorizado a crearse**. La
+decisión y la construcción son iteraciones distintas.
+
+El modelo de datos en `docs/DATA-MODEL.md` es **conceptual**. No es un esquema para ejecutar.
+
+### 5.2 Vigentes siempre, salvo ADR que las levante
+
 - Implementar chat en tiempo real (WebSocket, SSE).
 - Implementar integración con GitHub.
 - Implementar captura de uso de agentes o tokens.
 - Implementar pagos o facturación.
 - Crear microservicios.
-- Hacer `commit` o `push`.
+- Usar *Edge Runtime* o funciones dependientes de una plataforma concreta (`ADR-004` T4-R7).
+- Introducir JWT como sesión de navegador (`ADR-006` T6-R11).
+- Usar dobles de base de datos en pruebas de autorización (`ADR-008` T8-R1).
+- Ejecutar `drizzle-kit push` fuera de la base local desechable (`ADR-005` T5-R6).
 
-El modelo de datos en `docs/DATA-MODEL.md` es **conceptual**. No es un esquema para ejecutar.
+### 5.3 Siempre
+
+- **No hagas `commit` ni `push`** salvo petición explícita.
 
 ## 6. Convenciones
 

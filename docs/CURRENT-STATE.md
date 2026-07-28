@@ -1,6 +1,6 @@
 # CURRENT STATE
 
-**Última actualización: 2026-07-28 — iteración 0.1**
+**Última actualización: 2026-07-28 — iteración 1, corrección final**
 
 Estado real del proyecto. Este documento se actualiza en **todo** cambio. Si dice algo que no es
 cierto, es un defecto.
@@ -9,8 +9,8 @@ cierto, es un defecto.
 
 ## 1. Estado en una línea
 
-**Iteración 0.1 completa: fundación documental normalizada y sin contradicciones abiertas entre
-documentos.** No existe código de producto, ni dependencias, ni esquema ejecutable, ni despliegue.
+**Iteración 1 completa: producto definido y stack técnico decidido.** No existe código de producto,
+ni dependencias, ni esquema ejecutable, ni contenedores, ni despliegue.
 
 ## 2. Qué existe
 
@@ -28,11 +28,19 @@ nj-worktrace/
 │   ├── DATA-MODEL.md         22 entidades conceptuales
 │   ├── UI-WIREFRAMES.md      7 pantallas × laptop + móvil
 │   ├── MVP-PLAN.md           iteraciones 0 → 8
+│   ├── TECHNICAL-FOUNDATION.md   stack, compatibilidad, versiones   ← iteración 1
+│   ├── ENVIRONMENTS.md           entornos y configuración           ← iteración 1
+│   ├── TESTING.md                convenciones de prueba             ← iteración 1
 │   ├── CURRENT-STATE.md      este documento
 │   └── decisions/
-│       ├── ADR-001-modular-monolith.md    (revisado en 0.1)
-│       ├── ADR-002-workspace-boundary.md  (revisado en 0.1)
-│       └── ADR-003-client-interaction.md  (revisado en 0.1)
+│       ├── ADR-001-modular-monolith.md          (revisado en 0.1)
+│       ├── ADR-002-workspace-boundary.md        (revisado en 0.1)
+│       ├── ADR-003-client-interaction.md        (revisado en 0.1)
+│       ├── ADR-004-application-stack.md         ← iteración 1
+│       ├── ADR-005-persistence-and-migrations.md ← iteración 1
+│       ├── ADR-006-authentication-and-sessions.md ← iteración 1
+│       ├── ADR-007-runtime-and-deployment.md    ← iteración 1
+│       └── ADR-008-testing-strategy.md          ← iteración 1
 └── .claude/skills/
     ├── plan-iteration/SKILL.md
     ├── verify-change/SKILL.md
@@ -41,19 +49,24 @@ nj-worktrace/
 
 ## 3. Qué NO existe
 
-Sin `package.json` · sin dependencias · sin aplicación Next.js ni otro framework · sin base de datos
-· sin migraciones · sin autenticación · sin Docker · sin CI · sin pruebas · sin despliegue · sin
-integración con GitHub · sin captura de agentes o tokens · sin pagos.
+Sin `package.json` · sin dependencias instaladas · sin aplicación Next.js ni andamiaje de framework
+· sin base de datos · sin migraciones · sin autenticación implementada · sin Dockerfile ni Docker
+Compose · sin CI · sin pruebas · sin despliegue · sin integración con GitHub · sin captura de
+agentes o tokens · sin pagos.
 
-Ningún archivo de este repositorio se ejecuta.
+**Ningún archivo de este repositorio se ejecuta.** El stack está **decidido**, no **creado**: son
+iteraciones distintas (`AGENTS.md` §5.1).
 
 ## 4. Estado de Git
 
-- Rama: `docs/product-foundation`
+- Rama actual: **`feat/technical-foundation`**
 - Rama principal: `main`
-- **Commits: ninguno.** El repositorio no tiene historial todavía.
-- Todos los archivos están **sin seguimiento** (`untracked`).
-- No se ha hecho `commit` ni `push` — restricción explícita de `AGENTS.md` §5.
+- Historial: **1 commit** — `08b97f4 docs: establish normalized product foundation`
+  (iteraciones 0 y 0.1, confirmadas fuera de la sesión de trabajo).
+- Ramas existentes: `main`, `docs/product-foundation`, `feat/technical-foundation` — las tres
+  apuntaban a `08b97f4` al empezar la iteración 1.
+- Cambios de la iteración 1: **sin confirmar**, en el árbol de trabajo de `feat/technical-foundation`.
+- No se ha hecho `commit` ni `push` — restricción de `AGENTS.md` §5.3.
 
 ## 5. Decisiones adoptadas
 
@@ -64,6 +77,11 @@ Ningún archivo de este repositorio se ejecuta.
 | ADR-001 | Monolito modular. Un despliegue, módulos con fronteras explícitas. Sin microservicios. | 0.1: escalado horizontal posible, orquestación por servicios de aplicación, unidad de trabajo compartida sin acceso a tablas ajenas |
 | ADR-002 | El workspace es la única frontera dura de autorización. Sin pertenencia → 404. | 0.1: §9, identificador público opaco; el nombre no identifica ni se valida globalmente |
 | ADR-003 | El cliente escribe solo en canales propios. Toda petición pasa por triaje. | 0.1: cuatro canales, revisiones sin filas pendientes, hilos sin visibilidad propia, solicitud como contexto de conversación |
+| **ADR-004** | Next.js 16 App Router, React 19, TypeScript estricto, pnpm, Tailwind 4, shadcn/ui copiado al repositorio. Disposición modular con `internal/` inaccesible. | Iteración 1 |
+| **ADR-005** | PostgreSQL 18 (mínimo 16), Drizzle ORM `0.45.x` exacta sobre `node-postgres` con `drizzle-kit` en su propia línea de versión exacta y compatible verificada, migraciones SQL versionadas y revisadas. `DATABASE_URL` como único contrato. Invariantes repartidas entre base, índice parcial, servicio y Zod. | Iteración 1, corregida (sesión de corrección) |
+| **ADR-006** | Better Auth `1.6.x` solo para **autenticación**, sesiones en PostgreSQL, cookies opacas `HttpOnly`/`Secure`/`SameSite=Lax`, sin `cookieCache`, sin JWT, sin sus plugins de organización. | Iteración 1 |
+| **ADR-007** | Node.js 24 LTS, Next.js `output: 'standalone'` en imagen Docker propia, PostgreSQL local por Compose, `pnpm dev` nativo, migrar como paso separado, Caddy y PostgreSQL administrado como futuro opcional. | Iteración 1 |
+| **ADR-008** | Vitest `4.1.x` (estable; 5 sigue en beta) + PostgreSQL real en base desechable, Playwright contra la imagen construida, pruebas de aislamiento obligatorias, **prohibidos los dobles de base en autorización**, sin umbral de cobertura. | Iteración 1, corregida (sesión de corrección) |
 
 ### De producto
 
@@ -121,6 +139,18 @@ Ningún archivo de este repositorio se ejecuta.
 | **OD-15** | Uso de herramientas y agentes: qué se registra, manual o estimado, y cómo se relaciona con las sesiones. | Post-MVP | Bajo. `DATA-MODEL.md` §9 deja la puerta abierta. |
 | **OD-16** | ¿Exportación de informes (PDF/CSV)? ¿Qué contiene un informe de cierre exportado? | Post-MVP | Bajo. **Nueva en 0.1**: antes se referenciaba erróneamente como `OD-09`. |
 | **OD-17** | Con varios `CLIENT` en un workspace, ¿ve cada uno las solicitudes y revisiones de los demás? | Iteración 5 | Medio. **Nueva en 0.1**, surgida al cerrar `OD-02`. **Valor por defecto del MVP: cada cliente ve solo lo suyo** — el conservador. Si representan a una misma organización, probablemente convenga compartirlas. |
+| **OD-18** | ¿Se añade **Row-Level Security** de PostgreSQL como refuerzo del aislamiento, además del `WorkspaceScope` de la capa de datos? | Iteración 2 | Medio. **Nueva en la iteración 1** (`ADR-005` §3.6). RLS con un usuario de aplicación único exige propagar el actor por variable de sesión; hacerlo a medias da falsa seguridad. Decidible dentro de la iteración 2, con medidas reales delante. |
+
+### Decisiones técnicas cerradas en la iteración 1
+
+Ninguna era un `OD-xx`: eran huecos técnicos, no decisiones de producto pendientes.
+Framework y lenguaje (ADR-004) · motor de datos, capa de acceso y migraciones (ADR-005) ·
+mecanismo de sesión (ADR-006) · runtime, artefacto y despliegue (ADR-007) · estrategia de pruebas
+(ADR-008).
+
+**`OD-07` (zonas horarias), que la iteración 0.1 marcaba como bloqueante de esta iteración, ya
+estaba cerrada y se ha traducido a esquema**: `timestamptz` para instantes, `date` para fechas
+civiles, zona IANA obligatoria en el workspace (`ADR-005` §3.4).
 
 ### Cerradas en la iteración 0.1
 
@@ -173,8 +203,11 @@ Ningún archivo de este repositorio se ejecuta.
 
 | # | Riesgo | Gravedad | Estado |
 |---|---|---|---|
-| R-01 | Fuga de datos entre workspaces | **Crítica** | Mitigada en diseño (ADR-002, ahora con A7–A8). Sin verificar: no hay código. |
+| R-01 | Fuga de datos entre workspaces | **Crítica** | Mitigada en diseño (ADR-002 A1–A8) y ahora también en estrategia: `WorkspaceScope` obligatorio (ADR-005 §3.6) y pruebas contra PostgreSQL real sin dobles (ADR-008 §3.5). Sin verificar: no hay código. |
 | R-02 | Publicar contenido interno por descuido | Alta | Mitigada en diseño (D-05, D-06, R10 ampliada a evidencias). Sin verificar. |
+| **R-11** | **Drizzle sigue por debajo de 1.0** y su 1.0 es una reescritura del motor de migraciones | Media | **Nuevo en la iteración 1.** Versión exacta `0.45.x`, sin beta. Mitigación de fondo: las migraciones son SQL plano y el esquema es PostgreSQL estándar — sustituir la capa de acceso no movería datos (ADR-005 §3.2.1). |
+| **R-12** | **Concentración de proveedor**: Next.js es de Vercel y Better Auth se ha incorporado a Vercel | Media | **Nuevo en la iteración 1.** Ambos de código abierto y autohospedados. Mitigación: sin funciones de plataforma (T4-R7), Better Auth solo para autenticación y tras el módulo `identity` (T6-R3/R4), datos y membresías propios. Criterio de comprobación: la aplicación debe funcionar entera sin servicios de terceros (ADR-007 §4). |
+| **R-13** | Divergencia entre desarrollo (nativo) y producción (contenedor) | Baja | **Nuevo en la iteración 1.** Se acota construyendo y arrancando la imagen en CI y ejecutando E2E contra ella (T7-1, T8-R7). |
 | R-03 | El registro de tiempo resulta molesto y se abandona | Alta | Mitigada en diseño (criterio E4). Solo se comprueba con uso real. |
 | R-04 | El cliente nunca entra en la aplicación | Media | Sin mitigar. Depende de `OD-09`. |
 | R-05 | Crecimiento del alcance | Media | Mitigada: `PRODUCT-SCOPE.md` §5 es una lista de rechazos. |
@@ -186,25 +219,38 @@ Ningún archivo de este repositorio se ejecuta.
 
 `R-06` sustituye al antiguo riesgo de zonas horarias, ya cerrado con `OD-07`.
 
+### 8.1 Verificaciones técnicas pendientes
+
+Seis cosas que la documentación oficial no resuelve y que hay que comprobar al montar el andamiaje.
+Ninguna bloquea la decisión; todas bloquean darla por buena.
+Listadas en [`TECHNICAL-FOUNDATION.md`](TECHNICAL-FOUNDATION.md) §5: `moduleResolution` de Zod ·
+`SameSite` por defecto de Better Auth · protección CSRF real · copia de `public/` y `.next/static`
+en la imagen `standalone` · rendimiento de las bases por plantilla · comportamiento de los índices
+parciales únicos.
+
 ## 9. Próximo paso recomendado
 
-**Iteración 1 — decisiones técnicas.** Ya no hay decisiones de producto que la bloqueen.
+**Iteración 1.5 — cimentación ejecutable.** Es la primera que crea código, y necesita autorización
+explícita: `AGENTS.md` §5.1 la prohíbe hasta entonces.
 
-1. Registrar como ADR-004 a ADR-008: lenguaje y framework, persistencia, mecanismo de sesión,
-   despliegue, enfoque de pruebas.
-2. Al elegir persistencia, comprobar que soporta lo que el modelo exige: transacciones que abarcan
-   varios módulos (`ADR-001` aclaración *d*), unicidad compuesta (`work_cycle_items`,
-   `evidence_links`, `workspace_members`) y aritmética de fechas civiles con zona IANA
-   (`DATA-MODEL.md` §7).
-3. Después, iteración 2 (aislamiento), cuyo criterio de terminado son las **ocho** reglas A1–A8 de
-   `ADR-002`.
+1. Andamiaje mínimo **sin dominio**: `package.json`, TypeScript estricto, disposición modular de
+   `ADR-004` §3.3 con sus reglas de linting, Compose con PostgreSQL, conexión Drizzle, configuración
+   validada con Zod, migración inicial vacía, Vitest con base desechable, Dockerfile `standalone`, CI.
+2. Resolver de paso las seis verificaciones de §8.1.
+3. Solo después, **iteración 2 (aislamiento)**, cuyo criterio de terminado son las ocho reglas
+   A1–A8 de `ADR-002`, probadas contra PostgreSQL real.
 
-**No empezar por la interfaz.** La iteración 2 es la única cuyo fallo no se puede corregir a
-posteriori sin rehacer lo construido encima.
+**Por qué separar 1.5 de 2:** montar el andamiaje y construir el aislamiento a la vez mezcla dos
+clases de fallo. Si algo va mal en la primera semana conviene saber si es el stack o el diseño.
+
+**No empezar por la interfaz.** La iteración 2 sigue siendo la única cuyo fallo no se puede corregir
+a posteriori sin rehacer lo construido encima.
 
 ## 10. Registro de cambios
 
 | Fecha | Cambio |
 |---|---|
+| 2026-07-28 | **Corrección final de la iteración 1** — tres precisiones técnicas sobre ADR-005, ADR-006 y ADR-008: (1) `drizzle-orm` y `drizzle-kit` tienen líneas de versión **independientes**, cada una exacta, verificadas como combinación compatible — no se exige que coincidan en número; (2) Vitest fijado en **`4.1.x`** (estable) en lugar de `5.x` (beta), con la adopción de Vitest 5 movida a condición de revisión; (3) el comportamiento de `DEMO_MODE=false` se corrige: las rutas de demostración existen por estructura de archivos de Next.js y responden **404 antes de ejecutar lógica**, no se "desregistran" dinámicamente; la protección de fondo sigue siendo que `DEMO_MODE=true` en producción impide el arranque. Sincronizados: ADR-005, ADR-006, ADR-008, `TECHNICAL-FOUNDATION.md`, `CURRENT-STATE.md`. Sin tocar `UI-WIREFRAMES.md`, que conserva la misma imprecisión en su §1 y queda pendiente para una corrección posterior fuera de este alcance. |
+| 2026-07-28 | **Iteración 1** — decisiones técnicas. 5 ADRs nuevos (004–008), 3 documentos técnicos (`TECHNICAL-FOUNDATION`, `ENVIRONMENTS`, `TESTING`), 1 decisión abierta nueva (`OD-18`, RLS), 3 riesgos nuevos (R-11 Drizzle pre-1.0, R-12 concentración de proveedor, R-13 divergencia de entornos), 6 verificaciones técnicas pendientes. Los 10 puntos de la prueba de compatibilidad conceptual se cumplen. Iteración 1.5 añadida al plan. Quedan 13 decisiones abiertas. |
 | 2026-07-28 | **Iteración 0.1** — normalización. 7 decisiones cerradas (`K-01`, `K-02`, `OD-02`, `OD-03`, `OD-07`, `OD-08`, `OD-11`), 15 decisiones de producto nuevas (D-19…D-33), 14 contradicciones corregidas (K-10…K-23), 2 decisiones abiertas nuevas (`OD-16`, `OD-17`), 4 entidades de relación añadidas, 3 ADRs revisados. Quedan 12 decisiones abiertas, ninguna bloquea las iteraciones 1–3. |
 | 2026-07-28 | **Iteración 0** — fundación documental. 15 decisiones abiertas, 3 ADRs, 18 decisiones de producto, 9 contradicciones documentadas. |

@@ -3,8 +3,9 @@
 Aplicación personal **multiespacio** para trazabilidad de trabajo y colaboración controlada con
 clientes.
 
-> **Estado: diseño documental.** No hay código de producto. Este repositorio contiene la fundación
-> conceptual, los flujos y los wireframes de baja fidelidad.
+> **Estado: producto y stack decididos, sin código todavía.** Este repositorio contiene la fundación
+> conceptual (alcance, permisos, flujos, modelo, wireframes) y las decisiones técnicas que la
+> sostendrán. No hay `package.json`, ni dependencias, ni esquema, ni contenedores.
 
 ## El problema
 
@@ -59,7 +60,19 @@ Empieza por **[`docs/START-HERE.md`](docs/START-HERE.md)**.
 | [`docs/UI-WIREFRAMES.md`](docs/UI-WIREFRAMES.md) | Wireframes de baja fidelidad |
 | [`docs/MVP-PLAN.md`](docs/MVP-PLAN.md) | Alcance y secuencia del MVP |
 | [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md) | Estado real y decisiones abiertas |
-| [`docs/decisions/`](docs/decisions/) | Registros de decisión (ADR) |
+| [`docs/TECHNICAL-FOUNDATION.md`](docs/TECHNICAL-FOUNDATION.md) | Stack, compatibilidad y política de versiones |
+| [`docs/ENVIRONMENTS.md`](docs/ENVIRONMENTS.md) | Entornos y configuración |
+| [`docs/TESTING.md`](docs/TESTING.md) | Estrategia y convenciones de prueba |
+| [`docs/decisions/`](docs/decisions/) | Registros de decisión (ADR-001 … ADR-008) |
+
+## Stack elegido
+
+Next.js 16 (App Router) · TypeScript estricto · Tailwind CSS 4 · shadcn/ui copiado al repositorio ·
+PostgreSQL 18 · Drizzle ORM con migraciones SQL versionadas · Better Auth con sesiones en base ·
+Node.js 24 LTS · Docker (`output: 'standalone'`) · Vitest y Playwright contra PostgreSQL real.
+
+Sin dependencia obligatoria de ninguna plataforma de despliegue. Ver
+[`docs/TECHNICAL-FOUNDATION.md`](docs/TECHNICAL-FOUNDATION.md).
 
 ## Para agentes de código
 
