@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_ENV: test
+  POSTGRES_USER: nj_worktrace
+  POSTGRES_PASSWORD: nj_worktrace_dev
+  POSTGRES_DB: nj_worktrace
+  POSTGRES_PORT: 5432
+  APP_PORT: 3000
+  DATABASE_URL: postgresql://nj_worktrace:nj_worktrace_dev@127.0.0.1:5432/nj_worktrace
+
+jobs:
+  verify:
+    name: Build, Lint, Test & Container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Resolve pnpm store path
+        id: pnpm-cache
+        shell: bash
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Start PostgreSQL
+        run: docker compose up -d postgres
+
+      - name: Wait for PostgreSQL healthy
+        run: |
+          echo "Waiting for PostgreSQL to become healthy..."
+          for i in {1..30}; do
+            STATUS="$(docker compose ps postgres --format '{{.Health}}' 2>/dev/null || true)"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "✓ PostgreSQL is healthy"
+              exit 0
+            fi
+            echo "Attempt $i/30: PostgreSQL status is '$STATUS', waiting 2s..."
+            sleep 2
+          done
+          echo "✗ PostgreSQL did not become healthy within 60 seconds"
+          docker compose ps postgres
+          docker compose logs postgres
+          exit 1
+
+      - name: Verify database connection
+        run: pnpm db:check
+
+      - name: Run linter
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Run integration tests
+        run: pnpm test:integration
+
+      - name: Build Next.js application
+        run: pnpm build
+
+      - name: Build application container
+        run: docker compose build app
+
+      - name: Start application container
+        run: docker compose up -d app
+
+      - name: Wait for application healthy
+        run: |
+          echo "Waiting for application to become healthy..."
+          for i in {1..30}; do
+            STATUS="$(docker compose ps app --format '{{.Health}}' 2>/dev/null || true)"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "✓ Application is healthy"
+              exit 0
+            fi
+            echo "Attempt $i/30: Application status is '$STATUS', waiting 2s..."
+            sleep 2
+          done
+          echo "✗ Application did not become healthy within 60 seconds"
+          docker compose ps app
+          docker compose logs app
+          exit 1
+
+      - name: Verify container endpoints
+        run: pnpm container:check
+
+      - name: Verify non-root user
+        run: |
+          echo "Checking container user..."
+          USER_INFO=$(docker compose exec -T app id)
+          echo "$USER_INFO"
+          if echo "$USER_INFO" | grep -q "uid=0(root)"; then
+            echo "✗ Container is running as root"
+            exit 1
+          fi
+          echo "✓ Container is not running as root"
+
+      - name: Cleanup and diagnostics
+        if: always()
+        run: |
+          set +e
+          echo "=== Docker Compose Status ==="
+          docker compose ps
+          echo ""
+          echo "=== PostgreSQL Logs ==="
+          docker compose logs postgres --no-color
+          echo ""
+          echo "=== Application Logs ==="
+          docker compose logs app --no-color
+          echo ""
+          echo "=== Docker Compose Down ==="
+          docker compose down -v --remove-orphans

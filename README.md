@@ -3,8 +3,9 @@
 Aplicación personal **multiespacio** para trazabilidad de trabajo y colaboración controlada con
 clientes.
 
-> **Estado: artefacto de producción en contenedor (iteración 1.5C).** Aplicación Next.js empaquetada
-> en imagen Docker Linux con output `standalone`. El dominio todavía no está implementado.
+> **Estado: integración continua mínima (iteración 1.5D).** Workflow de GitHub Actions que verifica
+> automáticamente instalación, lint, TypeScript, pruebas, build y contenedor. El dominio todavía no
+> está implementado.
 
 ## El problema
 
@@ -96,6 +97,28 @@ pnpm container:check    # Verificar endpoints del contenedor
 ```
 
 La imagen se construye con `output: 'standalone'` de Next.js y corre como usuario no root.
+
+### Integración continua
+
+El workflow `.github/workflows/ci.yml` se ejecuta automáticamente en:
+
+- Push a `main`
+- Pull requests hacia `main`
+- Ejecución manual (`workflow_dispatch`)
+
+Verifica:
+
+- Instalación reproducible con `pnpm install --frozen-lockfile`
+- Lint con ESLint
+- Type check con TypeScript
+- Pruebas unitarias con Vitest
+- Pruebas de integración contra PostgreSQL 18 real
+- Build de Next.js
+- Build de la imagen Docker
+- Arranque del contenedor con usuario no root
+- Health check, readiness y recurso estático
+
+La primera ejecución remota del workflow queda pendiente hasta hacer push.
 
 ### Health check
 
