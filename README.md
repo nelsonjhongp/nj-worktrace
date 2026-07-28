@@ -3,9 +3,9 @@
 Aplicación personal **multiespacio** para trazabilidad de trabajo y colaboración controlada con
 clientes.
 
-> **Estado: integración continua mínima (iteración 1.5D).** Workflow de GitHub Actions que verifica
-> automáticamente instalación, lint, TypeScript, pruebas, build y contenedor. El dominio todavía no
-> está implementado.
+> **Estado: esquema de identidad y workspaces (iteración 2A).** Esquema de base de datos con tablas
+> `domain_users`, `workspaces` y `workspace_members`, migraciones versionadas y pruebas de integración.
+> La autenticación y la interfaz todavía no están implementadas.
 
 ## El problema
 
@@ -72,6 +72,17 @@ pnpm db:down      # Detener y eliminar contenedor
 pnpm db:logs      # Ver logs de PostgreSQL
 pnpm db:check     # Verificar conexión a la base de datos
 ```
+
+### Migraciones
+
+```bash
+pnpm db:generate      # Generar migración desde el esquema
+pnpm db:migrate       # Aplicar migraciones a la base de desarrollo
+pnpm db:test:reset    # Resetear base de datos de pruebas
+```
+
+La base de datos de pruebas (`nj_worktrace_test`) es desechable y se resetea antes de cada ejecución
+de pruebas de integración. La base de desarrollo (`nj_worktrace`) no se destruye automáticamente.
 
 ### Comandos
 
@@ -195,4 +206,4 @@ Lee [`CLAUDE.md`](CLAUDE.md) y [`AGENTS.md`](AGENTS.md) antes de cualquier cambi
 
 ## Licencia
 
-Sin definir. Proyecto privado.
+Repositorio público. Sin licencia explícita; todos los derechos reservados hasta que se adopte una.
