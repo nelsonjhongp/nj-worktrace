@@ -1,6 +1,6 @@
 # CURRENT STATE
 
-**Última actualización: 2026-07-28 — iteración 1, corrección final**
+**Última actualización: 2026-07-28 — iteración 1.5A, cimentación ejecutable**
 
 Estado real del proyecto. Este documento se actualiza en **todo** cambio. Si dice algo que no es
 cierto, es un defecto.
@@ -9,8 +9,9 @@ cierto, es un defecto.
 
 ## 1. Estado en una línea
 
-**Iteración 1 completa: producto definido y stack técnico decidido.** No existe código de producto,
-ni dependencias, ni esquema ejecutable, ni contenedores, ni despliegue.
+**Iteración 1.5A completa: aplicación Next.js mínima, ejecutable y verificable.** El dominio
+todavía no está implementado. No hay base de datos, ni migraciones, ni autenticación, ni interfaz
+de usuario funcional.
 
 ## 2. Qué existe
 
@@ -18,7 +19,15 @@ ni dependencias, ni esquema ejecutable, ni contenedores, ni despliegue.
 nj-worktrace/
 ├── CLAUDE.md                 punto de entrada para agentes
 ├── AGENTS.md                 contrato de trabajo neutral
-├── README.md                 presentación del proyecto
+├── README.md                 presentación del proyecto + comandos de desarrollo
+├── package.json              dependencias y scripts (pnpm)
+├── tsconfig.json             TypeScript estricto (5 opciones)
+├── next.config.ts            Next.js con output: 'standalone'
+├── postcss.config.mjs        Tailwind CSS 4 vía PostCSS
+├── eslint.config.mjs         ESLint flat config con regla de frontera modular
+├── vitest.config.ts          Vitest 4.1.x
+├── .env.example              variables de entorno documentadas
+├── .gitignore                ignorados de Next.js, Node, env
 ├── docs/
 │   ├── START-HERE.md         mapa e índice
 │   ├── PRODUCT-SCOPE.md      alcance, exclusiones, criterios de éxito
@@ -28,9 +37,9 @@ nj-worktrace/
 │   ├── DATA-MODEL.md         22 entidades conceptuales
 │   ├── UI-WIREFRAMES.md      7 pantallas × laptop + móvil
 │   ├── MVP-PLAN.md           iteraciones 0 → 8
-│   ├── TECHNICAL-FOUNDATION.md   stack, compatibilidad, versiones   ← iteración 1
-│   ├── ENVIRONMENTS.md           entornos y configuración           ← iteración 1
-│   ├── TESTING.md                convenciones de prueba             ← iteración 1
+│   ├── TECHNICAL-FOUNDATION.md   stack, compatibilidad, versiones
+│   ├── ENVIRONMENTS.md           entornos y configuración
+│   ├── TESTING.md                convenciones de prueba
 │   ├── CURRENT-STATE.md      este documento
 │   └── decisions/
 │       ├── ADR-001-modular-monolith.md          (revisado en 0.1)
@@ -41,6 +50,30 @@ nj-worktrace/
 │       ├── ADR-006-authentication-and-sessions.md ← iteración 1
 │       ├── ADR-007-runtime-and-deployment.md    ← iteración 1
 │       └── ADR-008-testing-strategy.md          ← iteración 1
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx        layout raíz
+│   │   ├── page.tsx          página temporal técnica
+│   │   ├── globals.css       Tailwind + variables
+│   │   └── api/
+│   │       └── health/
+│   │           └── route.ts  GET /api/health
+│   ├── modules/
+│   │   ├── identity/
+│   │   │   ├── index.ts      superficie pública (placeholder)
+│   │   │   └── internal/     acceso prohibido desde fuera
+│   │   └── workspaces/
+│   │       ├── index.ts      superficie pública (placeholder)
+│   │       └── internal/     acceso prohibido desde fuera
+│   ├── application/          servicios de aplicación (vacío)
+│   ├── platform/
+│   │   ├── env.ts            validación de entorno con Zod
+│   │   └── health.ts         contrato del health check
+│   └── ui/                   componentes compartidos (vacío)
+└── tests/
+    ├── health.test.ts        contrato del health check
+    ├── env.test.ts           validación de entorno
+    └── module-boundary.test.ts  frontera modular
 └── .claude/skills/
     ├── plan-iteration/SKILL.md
     ├── verify-change/SKILL.md
@@ -49,23 +82,18 @@ nj-worktrace/
 
 ## 3. Qué NO existe
 
-Sin `package.json` · sin dependencias instaladas · sin aplicación Next.js ni andamiaje de framework
-· sin base de datos · sin migraciones · sin autenticación implementada · sin Dockerfile ni Docker
-Compose · sin CI · sin pruebas · sin despliegue · sin integración con GitHub · sin captura de
-agentes o tokens · sin pagos.
+Sin base de datos · sin migraciones · sin autenticación implementada · sin Dockerfile ni Docker
+Compose · sin CI · sin despliegue · sin integración con GitHub · sin captura de agentes o tokens ·
+sin pagos · sin interfaz de usuario funcional (solo página temporal técnica).
 
-**Ningún archivo de este repositorio se ejecuta.** El stack está **decidido**, no **creado**: son
-iteraciones distintas (`AGENTS.md` §5.1).
+**El stack está creado pero no completo**: falta PostgreSQL, Drizzle, Better Auth, Docker, CI.
 
 ## 4. Estado de Git
 
-- Rama actual: **`feat/technical-foundation`**
+- Rama actual: **`feat/executable-foundation`**
 - Rama principal: `main`
-- Historial: **1 commit** — `08b97f4 docs: establish normalized product foundation`
-  (iteraciones 0 y 0.1, confirmadas fuera de la sesión de trabajo).
-- Ramas existentes: `main`, `docs/product-foundation`, `feat/technical-foundation` — las tres
-  apuntaban a `08b97f4` al empezar la iteración 1.
-- Cambios de la iteración 1: **sin confirmar**, en el árbol de trabajo de `feat/technical-foundation`.
+- Historial: **2 commits** previos a la iteración 1.5A.
+- Cambios de la iteración 1.5A: **sin confirmar**, en el árbol de trabajo.
 - No se ha hecho `commit` ni `push` — restricción de `AGENTS.md` §5.3.
 
 ## 5. Decisiones adoptadas
@@ -190,7 +218,7 @@ civiles, zona IANA obligatoria en el workspace (`ADR-005` §3.4).
 | **K-15** | `client_requests.related_thread_id` apuntaba a un hilo sin ancla propia — un hilo suelto, justo lo que `ADR-003` §8 prohíbe | `CLIENT_REQUEST` como `context_type`; `origin_thread_id` conservado con otro significado. → D-26 |
 | **K-16** | `USER-FLOWS` F3 A2 decía que la sesión anterior *"se pausa automáticamente"*; el wireframe mostraba un diálogo de confirmación | Confirmación obligatoria + operación atómica, en ambos documentos. → D-27 |
 | **K-17** | El wireframe de login ofrecía *"¿Olvidaste tu contraseña?"* sin flujo detrás y sin correo en el alcance | Enlace retirado; restablecimiento administrativo documentado. → D-28 |
-| **K-18** | `ADR-003` contaba «tres puntos de escritura» y luego describía cuatro; `ROLES` hablaba de «tres celdas» | Cuatro canales, contados igual en todos los documentos. → D-33 |
+| **K-18** | `ADR-003` contaba «tres puntos de escritura» y luego describía cuatro; `ROLES` hablaba de «tres celdas` | Cuatro canales, contados igual en todos los documentos. → D-33 |
 | **K-19** | `PRODUCT-SCOPE` remitía la exportación de informes a `OD-09`, que trata de notificaciones | Creada `OD-16` para exportación |
 | **K-20** | `discussion_threads` almacenaba `visibility` copiada del ancla, susceptible de desincronizarse | Campo eliminado; la accesibilidad se resuelve contra el ancla. → D-29 |
 | **K-21** | El README describía la vista del cliente como *"de solo lectura"*, incompatible con comentar, solicitar y aprobar | *"Vista publicada con interacción controlada"* |
@@ -228,19 +256,27 @@ Listadas en [`TECHNICAL-FOUNDATION.md`](TECHNICAL-FOUNDATION.md) §5: `moduleRes
 en la imagen `standalone` · rendimiento de las bases por plantilla · comportamiento de los índices
 parciales únicos.
 
+**Estado de verificaciones en 1.5A:**
+
+- **T-1 (Zod + moduleResolution):** ✅ Verificada. Zod 4.4.3 funciona con `moduleResolution: "bundler"` de Next.js.
+- **T-2, T-3, T-4, T-5, T-6:** Pendientes de iteración 2 (requieren Better Auth, Docker, PostgreSQL).
+
 ## 9. Próximo paso recomendado
 
-**Iteración 1.5 — cimentación ejecutable.** Es la primera que crea código, y necesita autorización
-explícita: `AGENTS.md` §5.1 la prohíbe hasta entonces.
+**Iteración 1.5B — persistencia y aislamiento.** Es la primera que toca datos reales.
 
-1. Andamiaje mínimo **sin dominio**: `package.json`, TypeScript estricto, disposición modular de
-   `ADR-004` §3.3 con sus reglas de linting, Compose con PostgreSQL, conexión Drizzle, configuración
-   validada con Zod, migración inicial vacía, Vitest con base desechable, Dockerfile `standalone`, CI.
-2. Resolver de paso las seis verificaciones de §8.1.
-3. Solo después, **iteración 2 (aislamiento)**, cuyo criterio de terminado son las ocho reglas
-   A1–A8 de `ADR-002`, probadas contra PostgreSQL real.
+1. Docker Compose con PostgreSQL 18.
+2. Drizzle ORM con esquema mínimo (sin tablas de dominio todavía).
+3. Conexión validada con `DATABASE_URL`.
+4. Migración inicial vacía.
+5. Vitest con base desechable (plantilla).
+6. Dockerfile `standalone` funcional.
+7. CI básico.
 
-**Por qué separar 1.5 de 2:** montar el andamiaje y construir el aislamiento a la vez mezcla dos
+Solo después, **iteración 2 (aislamiento)**, cuyo criterio de terminado son las ocho reglas
+A1–A8 de `ADR-002`, probadas contra PostgreSQL real.
+
+**Por qué separar 1.5B de 2:** montar la persistencia y construir el aislamiento a la vez mezcla dos
 clases de fallo. Si algo va mal en la primera semana conviene saber si es el stack o el diseño.
 
 **No empezar por la interfaz.** La iteración 2 sigue siendo la única cuyo fallo no se puede corregir
@@ -250,6 +286,7 @@ a posteriori sin rehacer lo construido encima.
 
 | Fecha | Cambio |
 |---|---|
+| 2026-07-28 | **Iteración 1.5A** — cimentación ejecutable. Next.js 16.2.12, TypeScript 5.9.3 estricto (5 opciones), Tailwind 4.3.3, Zod 4.4.3, Vitest 4.1.10. Estructura modular con frontera impuesta por ESLint y prueba de arquitectura. Health check funcional con contrato separado. Validación de entorno centralizada. Scripts: `dev`, `build`, `start`, `lint`, `typecheck`, `test`, `verify`. Todas las validaciones pasan. Sin base de datos, sin autenticación, sin interfaz de dominio. |
 | 2026-07-28 | **Corrección final de la iteración 1** — tres precisiones técnicas sobre ADR-005, ADR-006 y ADR-008: (1) `drizzle-orm` y `drizzle-kit` tienen líneas de versión **independientes**, cada una exacta, verificadas como combinación compatible — no se exige que coincidan en número; (2) Vitest fijado en **`4.1.x`** (estable) en lugar de `5.x` (beta), con la adopción de Vitest 5 movida a condición de revisión; (3) el comportamiento de `DEMO_MODE=false` se corrige: las rutas de demostración existen por estructura de archivos de Next.js y responden **404 antes de ejecutar lógica**, no se "desregistran" dinámicamente; la protección de fondo sigue siendo que `DEMO_MODE=true` en producción impide el arranque. Sincronizados: ADR-005, ADR-006, ADR-008, `TECHNICAL-FOUNDATION.md`, `CURRENT-STATE.md`. Sin tocar `UI-WIREFRAMES.md`, que conserva la misma imprecisión en su §1 y queda pendiente para una corrección posterior fuera de este alcance. |
 | 2026-07-28 | **Iteración 1** — decisiones técnicas. 5 ADRs nuevos (004–008), 3 documentos técnicos (`TECHNICAL-FOUNDATION`, `ENVIRONMENTS`, `TESTING`), 1 decisión abierta nueva (`OD-18`, RLS), 3 riesgos nuevos (R-11 Drizzle pre-1.0, R-12 concentración de proveedor, R-13 divergencia de entornos), 6 verificaciones técnicas pendientes. Los 10 puntos de la prueba de compatibilidad conceptual se cumplen. Iteración 1.5 añadida al plan. Quedan 13 decisiones abiertas. |
 | 2026-07-28 | **Iteración 0.1** — normalización. 7 decisiones cerradas (`K-01`, `K-02`, `OD-02`, `OD-03`, `OD-07`, `OD-08`, `OD-11`), 15 decisiones de producto nuevas (D-19…D-33), 14 contradicciones corregidas (K-10…K-23), 2 decisiones abiertas nuevas (`OD-16`, `OD-17`), 4 entidades de relación añadidas, 3 ADRs revisados. Quedan 12 decisiones abiertas, ninguna bloquea las iteraciones 1–3. |

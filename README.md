@@ -3,9 +3,8 @@
 Aplicación personal **multiespacio** para trazabilidad de trabajo y colaboración controlada con
 clientes.
 
-> **Estado: producto y stack decididos, sin código todavía.** Este repositorio contiene la fundación
-> conceptual (alcance, permisos, flujos, modelo, wireframes) y las decisiones técnicas que la
-> sostendrán. No hay `package.json`, ni dependencias, ni esquema, ni contenedores.
+> **Estado: cimentación ejecutable (iteración 1.5A).** Aplicación Next.js mínima, ejecutable y
+> verificable. El dominio todavía no está implementado.
 
 ## El problema
 
@@ -46,6 +45,46 @@ pero nunca escribe sobre el registro.
 El modelo admite **varios miembros `CLIENT` por workspace** y que un mismo usuario tenga roles
 distintos en workspaces distintos. El MVP arranca con un solo cliente: es configuración, no premisa.
 
+## Desarrollo
+
+### Requisitos
+
+- Node.js 24.x
+- pnpm 11.x
+
+### Instalación
+
+```bash
+pnpm install
+```
+
+### Comandos
+
+```bash
+pnpm dev          # Servidor de desarrollo
+pnpm build        # Construcción de producción
+pnpm start        # Servidor de producción (requiere build previo)
+pnpm lint         # ESLint
+pnpm typecheck    # TypeScript sin emisión
+pnpm test         # Pruebas con Vitest
+pnpm verify       # lint + typecheck + test + build
+```
+
+### Health check
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+Respuesta esperada:
+
+```json
+{
+  "status": "ok",
+  "service": "nj-worktrace"
+}
+```
+
 ## Documentación
 
 Empieza por **[`docs/START-HERE.md`](docs/START-HERE.md)**.
@@ -65,7 +104,7 @@ Empieza por **[`docs/START-HERE.md`](docs/START-HERE.md)**.
 | [`docs/TESTING.md`](docs/TESTING.md) | Estrategia y convenciones de prueba |
 | [`docs/decisions/`](docs/decisions/) | Registros de decisión (ADR-001 … ADR-008) |
 
-## Stack elegido
+## Stack
 
 Next.js 16 (App Router) · TypeScript estricto · Tailwind CSS 4 · shadcn/ui copiado al repositorio ·
 PostgreSQL 18 · Drizzle ORM con migraciones SQL versionadas · Better Auth con sesiones en base ·
