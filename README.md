@@ -3,8 +3,8 @@
 Aplicación personal **multiespacio** para trazabilidad de trabajo y colaboración controlada con
 clientes.
 
-> **Estado: cimentación ejecutable (iteración 1.5A).** Aplicación Next.js mínima, ejecutable y
-> verificable. El dominio todavía no está implementado.
+> **Estado: persistencia local mínima (iteración 1.5B).** Aplicación Next.js conectada a PostgreSQL
+> local mediante Docker Compose y Drizzle ORM. El dominio todavía no está implementado.
 
 ## El problema
 
@@ -51,23 +51,38 @@ distintos en workspaces distintos. El MVP arranca con un solo cliente: es config
 
 - Node.js 24.x
 - pnpm 11.x
+- Docker y Docker Compose
 
 ### Instalación
 
 ```bash
+# Copiar variables de entorno
+cp .env.example .env
+
+# Instalar dependencias
 pnpm install
+```
+
+### PostgreSQL local
+
+```bash
+pnpm db:up        # Iniciar PostgreSQL en contenedor
+pnpm db:down      # Detener y eliminar contenedor
+pnpm db:logs      # Ver logs de PostgreSQL
+pnpm db:check     # Verificar conexión a la base de datos
 ```
 
 ### Comandos
 
 ```bash
-pnpm dev          # Servidor de desarrollo
-pnpm build        # Construcción de producción
-pnpm start        # Servidor de producción (requiere build previo)
-pnpm lint         # ESLint
-pnpm typecheck    # TypeScript sin emisión
-pnpm test         # Pruebas con Vitest
-pnpm verify       # lint + typecheck + test + build
+pnpm dev              # Servidor de desarrollo
+pnpm build            # Construcción de producción
+pnpm start            # Servidor de producción (requiere build previo)
+pnpm lint             # ESLint
+pnpm typecheck        # TypeScript sin emisión
+pnpm test             # Pruebas unitarias con Vitest
+pnpm test:integration # Pruebas de integración (requiere PostgreSQL)
+pnpm verify           # lint + typecheck + test + test:integration + build
 ```
 
 ### Health check
@@ -82,6 +97,32 @@ Respuesta esperada:
 {
   "status": "ok",
   "service": "nj-worktrace"
+}
+```
+
+### Readiness check
+
+```bash
+curl http://localhost:3000/api/ready
+```
+
+Respuesta esperada con PostgreSQL activo:
+
+```json
+{
+  "status": "ok",
+  "service": "nj-worktrace",
+  "database": "ok"
+}
+```
+
+Respuesta esperada sin PostgreSQL:
+
+```json
+{
+  "status": "error",
+  "service": "nj-worktrace",
+  "database": "unavailable"
 }
 ```
 

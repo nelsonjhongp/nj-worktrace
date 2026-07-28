@@ -13,21 +13,19 @@ describe('Environment Validation', () => {
     resetEnvCache();
   });
 
-  it('validates with minimal required variables', () => {
-    delete process.env.DATABASE_URL;
-
-    const env = validateEnv();
-
-    expect(env.NODE_ENV).toBeDefined();
-    expect(env.DATABASE_URL).toBeUndefined();
-  });
-
-  it('accepts valid DATABASE_URL when provided', () => {
+  it('validates with required variables', () => {
     process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
 
     const env = validateEnv();
 
+    expect(env.NODE_ENV).toBeDefined();
     expect(env.DATABASE_URL).toBe('postgresql://user:pass@localhost:5432/db');
+  });
+
+  it('rejects missing DATABASE_URL', () => {
+    delete process.env.DATABASE_URL;
+
+    expect(() => validateEnv()).toThrow('Invalid environment variables');
   });
 
   it('rejects invalid DATABASE_URL format', () => {
@@ -37,7 +35,7 @@ describe('Environment Validation', () => {
   });
 
   it('caches result on subsequent calls', () => {
-    delete process.env.DATABASE_URL;
+    process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
 
     const env1 = validateEnv();
     const env2 = validateEnv();
