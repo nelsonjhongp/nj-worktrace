@@ -1,6 +1,6 @@
 # CURRENT STATE
 
-**Última actualización: 2026-07-28 — iteración 1.5C, artefacto de producción en contenedor**
+**Última actualización: 2026-07-28 — iteración 1.5D, integración continua mínima**
 
 Estado real del proyecto. Este documento se actualiza en **todo** cambio. Si dice algo que no es
 cierto, es un defecto.
@@ -9,10 +9,11 @@ cierto, es un defecto.
 
 ## 1. Estado en una línea
 
-**Iteración 1.5C completa: artefacto de producción en contenedor Linux.** Imagen Docker multi-etapa
-con Node.js 24 slim, output `standalone` de Next.js, usuario no root, conexión a PostgreSQL local
-mediante Docker Compose. El dominio todavía no está implementado. No hay migraciones, ni
-autenticación, ni interfaz de usuario funcional.
+**Iteración 1.5D completa: integración continua mínima.** Workflow de GitHub Actions que verifica
+automáticamente instalación, lint, TypeScript, pruebas unitarias e integración, build de Next.js,
+build de imagen Docker, arranque de contenedor y verificación de endpoints. La primera ejecución
+remota del workflow queda pendiente hasta hacer push. El dominio todavía no está implementado. No
+hay migraciones, ni autenticación, ni interfaz de usuario funcional.
 
 ## 2. Qué existe
 
@@ -34,6 +35,9 @@ nj-worktrace/
 ├── compose.yaml              Docker Compose con PostgreSQL 18 + app
 ├── .env.example              variables de entorno documentadas
 ├── .gitignore                ignorados de Next.js, Node, env
+├── .github/
+│   └── workflows/
+│       └── ci.yml            Workflow de integración continua
 ├── docs/
 │   ├── START-HERE.md         mapa e índice
 │   ├── PRODUCT-SCOPE.md      alcance, exclusiones, criterios de éxito
@@ -103,19 +107,20 @@ nj-worktrace/
 
 ## 3. Qué NO existe
 
-Sin migraciones · sin tablas de dominio · sin autenticación implementada · sin CI · sin despliegue
+Sin migraciones · sin tablas de dominio · sin autenticación implementada · sin despliegue
 remoto · sin integración con GitHub · sin captura de agentes o tokens · sin pagos · sin interfaz
 de usuario funcional (solo página temporal técnica).
 
 **El stack de producción está creado pero sin esquema de dominio**: la imagen Docker se construye
-y ejecuta correctamente, pero no hay tablas de negocio todavía.
+y ejecuta correctamente, pero no hay tablas de negocio todavía. La primera ejecución remota del
+workflow de CI queda pendiente hasta hacer push.
 
 ## 4. Estado de Git
 
-- Rama actual: **`feat/persistence-foundation`**
+- Rama actual: **`chore/ci-foundation`**
 - Rama principal: `main`
-- Historial: **3 commits** previos a la iteración 1.5B.
-- Cambios de la iteración 1.5B: **sin confirmar**, en el árbol de trabajo.
+- Historial: **4 commits** previos a la iteración 1.5D.
+- Cambios de la iteración 1.5D: **sin confirmar**, en el árbol de trabajo.
 - No se ha hecho `commit` ni `push` — restricción de `AGENTS.md` §5.3.
 
 ## 5. Decisiones adoptadas
@@ -302,6 +307,7 @@ a posteriori sin rehacer lo construido encima.
 
 | Fecha | Cambio |
 |---|---|
+| 2026-07-28 | **Iteración 1.5D** — integración continua mínima. Workflow `.github/workflows/ci.yml` con activadores en push/PR a main y workflow_dispatch. Verifica: instalación reproducible, lint, TypeScript, pruebas unitarias, pruebas de integración contra PostgreSQL 18 real, build de Next.js, build de imagen Docker, arranque de contenedor, health check, readiness, recurso estático y usuario no root. Mecanismo de espera con bucle para servicios healthy (máx 30 intentos, 2s entre intentos). Limpieza y diagnóstico con `if: always()`. Sin secretos reales. Permisos mínimos (contents: read). Ejecución remota pendiente hasta primer push. |
 | 2026-07-28 | **Iteración 1.5C** — artefacto de producción en contenedor. Dockerfile multi-etapa con Node.js 24 slim, Corepack, pnpm 11.17.0. Imagen con output `standalone` de Next.js. Usuario no root (uid=1001). Tamaño: 376MB (91.4MB comprimido). Servicio `app` en compose.yaml con health check. Conexión a PostgreSQL mediante red Docker interna. Endpoints verificados: `/api/health`, `/api/ready`, `/container-check.txt`. Comportamiento sin PostgreSQL: health 200, ready 503, sin uncaughtException. Recuperación automática al restaurar PostgreSQL. Build funciona sin PostgreSQL activo. Sin secretos en la imagen. |
 | 2026-07-28 | **Iteración 1.5B** — persistencia local mínima. Docker Compose con PostgreSQL 18. Drizzle ORM 0.45.2 + drizzle-kit 0.31.10 (versiones exactas, líneas independientes). Capa de base de datos con pool de pg (máx 4 conexiones). Endpoints `/api/health` (liveness) y `/api/ready` (readiness). Script `db:check` para verificación manual. Pruebas de integración contra PostgreSQL real. Variables de entorno validadas con Zod (`DATABASE_URL` requerida). Sin migraciones, sin tablas de dominio. |
 | 2026-07-28 | **Iteración 1.5A** — cimentación ejecutable. Next.js 16.2.12, TypeScript 5.9.3 estricto (5 opciones), Tailwind 4.3.3, Zod 4.4.3, Vitest 4.1.10. Estructura modular con frontera impuesta por ESLint y prueba de arquitectura. Health check funcional con contrato separado. Validación de entorno centralizada. Scripts: `dev`, `build`, `start`, `lint`, `typecheck`, `test`, `verify`. Todas las validaciones pasan. Sin base de datos, sin autenticación, sin interfaz de dominio. |
