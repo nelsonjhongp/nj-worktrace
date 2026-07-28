@@ -3,8 +3,8 @@
 Aplicación personal **multiespacio** para trazabilidad de trabajo y colaboración controlada con
 clientes.
 
-> **Estado: persistencia local mínima (iteración 1.5B).** Aplicación Next.js conectada a PostgreSQL
-> local mediante Docker Compose y Drizzle ORM. El dominio todavía no está implementado.
+> **Estado: artefacto de producción en contenedor (iteración 1.5C).** Aplicación Next.js empaquetada
+> en imagen Docker Linux con output `standalone`. El dominio todavía no está implementado.
 
 ## El problema
 
@@ -84,6 +84,18 @@ pnpm test             # Pruebas unitarias con Vitest
 pnpm test:integration # Pruebas de integración (requiere PostgreSQL)
 pnpm verify           # lint + typecheck + test + test:integration + build
 ```
+
+### Contenedor de producción
+
+```bash
+pnpm container:build    # Construir imagen Docker
+pnpm container:up       # Iniciar aplicación en contenedor
+pnpm container:down     # Detener contenedor
+pnpm container:logs     # Ver logs del contenedor
+pnpm container:check    # Verificar endpoints del contenedor
+```
+
+La imagen se construye con `output: 'standalone'` de Next.js y corre como usuario no root.
 
 ### Health check
 

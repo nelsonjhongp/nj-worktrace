@@ -1,6 +1,6 @@
 # CURRENT STATE
 
-**Última actualización: 2026-07-28 — iteración 1.5B, persistencia local mínima**
+**Última actualización: 2026-07-28 — iteración 1.5C, artefacto de producción en contenedor**
 
 Estado real del proyecto. Este documento se actualiza en **todo** cambio. Si dice algo que no es
 cierto, es un defecto.
@@ -9,10 +9,10 @@ cierto, es un defecto.
 
 ## 1. Estado en una línea
 
-**Iteración 1.5B completa: aplicación conectada a PostgreSQL local.** Docker Compose con PostgreSQL
-18, Drizzle ORM configurado, capa de base de datos funcional, endpoints de health y readiness
-operativos. El dominio todavía no está implementado. No hay migraciones, ni autenticación, ni
-interfaz de usuario funcional.
+**Iteración 1.5C completa: artefacto de producción en contenedor Linux.** Imagen Docker multi-etapa
+con Node.js 24 slim, output `standalone` de Next.js, usuario no root, conexión a PostgreSQL local
+mediante Docker Compose. El dominio todavía no está implementado. No hay migraciones, ni
+autenticación, ni interfaz de usuario funcional.
 
 ## 2. Qué existe
 
@@ -29,7 +29,9 @@ nj-worktrace/
 ├── vitest.config.ts          Vitest 4.1.x (pruebas unitarias)
 ├── vitest.integration.config.ts  Vitest para pruebas de integración
 ├── drizzle.config.ts         Configuración de Drizzle ORM
-├── compose.yaml              Docker Compose con PostgreSQL 18
+├── Dockerfile                Imagen Docker multi-etapa (producción)
+├── .dockerignore             Exclusión para contexto Docker
+├── compose.yaml              Docker Compose con PostgreSQL 18 + app
 ├── .env.example              variables de entorno documentadas
 ├── .gitignore                ignorados de Next.js, Node, env
 ├── docs/
@@ -81,8 +83,11 @@ nj-worktrace/
 │   │       ├── health.ts     verificación de conexión
 │   │       └── schema.ts     esquema (vacío, sin tablas de dominio)
 │   └── ui/                   componentes compartidos (vacío)
+├── public/
+│   └── container-check.txt   Recurso estático de verificación
 ├── scripts/
-│   └── db-check.ts           script de verificación de base de datos
+│   ├── db-check.ts           script de verificación de base de datos
+│   └── container-check.ts    script de verificación del contenedor
 ├── tests/
 │   ├── health.test.ts        contrato del health check
 │   ├── readiness.test.ts     contrato del readiness check
@@ -98,12 +103,12 @@ nj-worktrace/
 
 ## 3. Qué NO existe
 
-Sin migraciones · sin tablas de dominio · sin autenticación implementada · sin Dockerfile de la
-aplicación · sin CI · sin despliegue · sin integración con GitHub · sin captura de agentes o tokens ·
-sin pagos · sin interfaz de usuario funcional (solo página temporal técnica).
+Sin migraciones · sin tablas de dominio · sin autenticación implementada · sin CI · sin despliegue
+remoto · sin integración con GitHub · sin captura de agentes o tokens · sin pagos · sin interfaz
+de usuario funcional (solo página temporal técnica).
 
-**El stack de persistencia está creado pero sin esquema de dominio**: PostgreSQL local funciona,
-Drizzle está configurado, la conexión se verifica, pero no hay tablas de negocio todavía.
+**El stack de producción está creado pero sin esquema de dominio**: la imagen Docker se construye
+y ejecuta correctamente, pero no hay tablas de negocio todavía.
 
 ## 4. Estado de Git
 
@@ -273,28 +278,22 @@ Listadas en [`TECHNICAL-FOUNDATION.md`](TECHNICAL-FOUNDATION.md) §5: `moduleRes
 en la imagen `standalone` · rendimiento de las bases por plantilla · comportamiento de los índices
 parciales únicos.
 
-**Estado de verificaciones en 1.5B:**
+**Estado de verificaciones en 1.5C:**
 
 - **T-1 (Zod + moduleResolution):** ✅ Verificada. Zod 4.4.3 funciona con `moduleResolution: "bundler"` de Next.js.
 - **T-2, T-3:** Pendientes de iteración 2 (requieren Better Auth).
-- **T-4 (standalone + public/.next/static):** ✅ Verificada. La imagen standalone se construye correctamente.
+- **T-4 (standalone + public/.next/static):** ✅ Verificada. La imagen standalone se construye y ejecuta correctamente en contenedor Linux.
 - **T-5 (bases por plantilla):** Pendiente de iteración 2 (requiere migraciones).
 - **T-6 (índices parciales únicos):** Pendiente de iteración 2 (requiere esquema de dominio).
 
 ## 9. Próximo paso recomendado
 
-**Iteración 1.5C — Dockerfile y aislamiento básico.** La siguiente iteración debe:
+**Iteración 2 — aislamiento por workspace.** La siguiente iteración debe:
 
-1. Dockerfile multi-etapa con `output: 'standalone'`.
-2. Verificación de que `public/` y `.next/static` se copian correctamente.
-3. Usuario no root en la imagen.
-4. CI básico que construya la imagen y ejecute pruebas.
-
-Solo después, **iteración 2 (aislamiento)**, cuyo criterio de terminado son las ocho reglas
-A1–A8 de `ADR-002`, probadas contra PostgreSQL real.
-
-**Por qué separar 1.5C de 2:** montar el Dockerfile y construir el aislamiento a la vez mezcla dos
-clases de fallo. Si algo va mal en la primera semana conviene saber si es el stack o el diseño.
+1. Esquema de dominio mínimo (workspaces, usuarios, membresías).
+2. Migraciones con Drizzle.
+3. Pruebas de aislamiento A1–A8 de `ADR-002`.
+4. Better Auth para autenticación.
 
 **No empezar por la interfaz.** La iteración 2 sigue siendo la única cuyo fallo no se puede corregir
 a posteriori sin rehacer lo construido encima.
@@ -303,6 +302,7 @@ a posteriori sin rehacer lo construido encima.
 
 | Fecha | Cambio |
 |---|---|
+| 2026-07-28 | **Iteración 1.5C** — artefacto de producción en contenedor. Dockerfile multi-etapa con Node.js 24 slim, Corepack, pnpm 11.17.0. Imagen con output `standalone` de Next.js. Usuario no root (uid=1001). Tamaño: 376MB (91.4MB comprimido). Servicio `app` en compose.yaml con health check. Conexión a PostgreSQL mediante red Docker interna. Endpoints verificados: `/api/health`, `/api/ready`, `/container-check.txt`. Comportamiento sin PostgreSQL: health 200, ready 503, sin uncaughtException. Recuperación automática al restaurar PostgreSQL. Build funciona sin PostgreSQL activo. Sin secretos en la imagen. |
 | 2026-07-28 | **Iteración 1.5B** — persistencia local mínima. Docker Compose con PostgreSQL 18. Drizzle ORM 0.45.2 + drizzle-kit 0.31.10 (versiones exactas, líneas independientes). Capa de base de datos con pool de pg (máx 4 conexiones). Endpoints `/api/health` (liveness) y `/api/ready` (readiness). Script `db:check` para verificación manual. Pruebas de integración contra PostgreSQL real. Variables de entorno validadas con Zod (`DATABASE_URL` requerida). Sin migraciones, sin tablas de dominio. |
 | 2026-07-28 | **Iteración 1.5A** — cimentación ejecutable. Next.js 16.2.12, TypeScript 5.9.3 estricto (5 opciones), Tailwind 4.3.3, Zod 4.4.3, Vitest 4.1.10. Estructura modular con frontera impuesta por ESLint y prueba de arquitectura. Health check funcional con contrato separado. Validación de entorno centralizada. Scripts: `dev`, `build`, `start`, `lint`, `typecheck`, `test`, `verify`. Todas las validaciones pasan. Sin base de datos, sin autenticación, sin interfaz de dominio. |
 | 2026-07-28 | **Corrección final de la iteración 1** — tres precisiones técnicas sobre ADR-005, ADR-006 y ADR-008: (1) `drizzle-orm` y `drizzle-kit` tienen líneas de versión **independientes**, cada una exacta, verificadas como combinación compatible — no se exige que coincidan en número; (2) Vitest fijado en **`4.1.x`** (estable) en lugar de `5.x` (beta), con la adopción de Vitest 5 movida a condición de revisión; (3) el comportamiento de `DEMO_MODE=false` se corrige: las rutas de demostración existen por estructura de archivos de Next.js y responden **404 antes de ejecutar lógica**, no se "desregistran" dinámicamente; la protección de fondo sigue siendo que `DEMO_MODE=true` en producción impide el arranque. Sincronizados: ADR-005, ADR-006, ADR-008, `TECHNICAL-FOUNDATION.md`, `CURRENT-STATE.md`. Sin tocar `UI-WIREFRAMES.md`, que conserva la misma imprecisión en su §1 y queda pendiente para una corrección posterior fuera de este alcance. |
