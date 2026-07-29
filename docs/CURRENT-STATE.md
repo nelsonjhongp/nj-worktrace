@@ -1,6 +1,6 @@
 # CURRENT STATE
 
-**Última actualización: 2026-07-28 — iteración 1.5D, integración continua mínima**
+**Última actualización: 2026-07-28 — iteración 2A, esquema de identidad y workspaces**
 
 Estado real del proyecto. Este documento se actualiza en **todo** cambio. Si dice algo que no es
 cierto, es un defecto.
@@ -9,11 +9,10 @@ cierto, es un defecto.
 
 ## 1. Estado en una línea
 
-**Iteración 1.5D completa: integración continua mínima.** Workflow de GitHub Actions que verifica
-automáticamente instalación, lint, TypeScript, pruebas unitarias e integración, build de Next.js,
-build de imagen Docker, arranque de contenedor y verificación de endpoints. La primera ejecución
-remota del workflow queda pendiente hasta hacer push. El dominio todavía no está implementado. No
-hay migraciones, ni autenticación, ni interfaz de usuario funcional.
+**Iteración 2A completa: esquema de identidad y workspaces.** Esquema de base de datos con tablas
+`domain_users`, `workspaces` y `workspace_members`, migraciones versionadas, restricciones CHECK,
+índices parciales, trigger para invariante de OWNER activo y pruebas de integración. La autenticación
+y la interfaz todavía no están implementadas.
 
 ## 2. Qué existe
 
@@ -72,11 +71,13 @@ nj-worktrace/
 │   │           └── route.ts  GET /api/ready (readiness)
 │   ├── modules/
 │   │   ├── identity/
-│   │   │   ├── index.ts      superficie pública (placeholder)
-│   │   │   └── internal/     acceso prohibido desde fuera
+│   │   │   ├── index.ts      superficie pública (domain_users)
+│   │   │   └── internal/
+│   │   │       └── schema.ts esquema de domain_users
 │   │   └── workspaces/
-│   │       ├── index.ts      superficie pública (placeholder)
-│   │       └── internal/     acceso prohibido desde fuera
+│   │       ├── index.ts      superficie pública (workspaces, members, enums)
+│   │       └── internal/
+│   │           └── schema.ts esquema de workspaces y members
 │   ├── application/          servicios de aplicación (vacío)
 │   ├── platform/
 │   │   ├── env.ts            validación de entorno con Zod
@@ -85,12 +86,17 @@ nj-worktrace/
 │   │   └── database/
 │   │       ├── client.ts     Pool de pg + cliente Drizzle
 │   │       ├── health.ts     verificación de conexión
-│   │       └── schema.ts     esquema (vacío, sin tablas de dominio)
+│   │       └── schema.ts     composición de esquemas modulares
 │   └── ui/                   componentes compartidos (vacío)
+├── drizzle/
+│   └── 0000_overjoyed_nocturne.sql  migración inicial (tablas, enums, constraints, trigger)
 ├── public/
 │   └── container-check.txt   Recurso estático de verificación
 ├── scripts/
 │   ├── db-check.ts           script de verificación de base de datos
+│   ├── db-migrate.ts         script de aplicación de migraciones
+│   ├── db-reset.ts           script de reset de base de datos de desarrollo
+│   ├── db-test-reset.ts      script de reset de base de datos de pruebas
 │   └── container-check.ts    script de verificación del contenedor
 ├── tests/
 │   ├── health.test.ts        contrato del health check
@@ -98,7 +104,8 @@ nj-worktrace/
 │   ├── env.test.ts           validación de entorno
 │   ├── module-boundary.test.ts  frontera modular
 │   └── integration/
-│       └── database.test.ts  prueba de integración con PostgreSQL real
+│       ├── database.test.ts  prueba de integración con PostgreSQL real
+│       └── schema.test.ts    pruebas de esquema de identidad y workspaces
 └── .claude/skills/
     ├── plan-iteration/SKILL.md
     ├── verify-change/SKILL.md
@@ -107,20 +114,19 @@ nj-worktrace/
 
 ## 3. Qué NO existe
 
-Sin migraciones · sin tablas de dominio · sin autenticación implementada · sin despliegue
-remoto · sin integración con GitHub · sin captura de agentes o tokens · sin pagos · sin interfaz
-de usuario funcional (solo página temporal técnica).
+Sin autenticación implementada · sin despliegue remoto · sin integración con GitHub · sin captura
+de agentes o tokens · sin pagos · sin interfaz de usuario funcional (solo página temporal técnica).
 
-**El stack de producción está creado pero sin esquema de dominio**: la imagen Docker se construye
-y ejecuta correctamente, pero no hay tablas de negocio todavía. La primera ejecución remota del
-workflow de CI queda pendiente hasta hacer push.
+**El stack de producción está creado con esquema de identidad y workspaces**: la imagen Docker se
+construye y ejecuta correctamente, las tablas `domain_users`, `workspaces` y `workspace_members`
+existen con sus restricciones, pero la autenticación y la interfaz todavía no están implementadas.
 
 ## 4. Estado de Git
 
-- Rama actual: **`chore/ci-foundation`**
+- Rama actual: **`feat/identity-schema`**
 - Rama principal: `main`
-- Historial: **4 commits** previos a la iteración 1.5D.
-- Cambios de la iteración 1.5D: **sin confirmar**, en el árbol de trabajo.
+- Historial: **5 commits** previos a la iteración 2A.
+- Cambios de la iteración 2A: **sin confirmar**, en el árbol de trabajo.
 - No se ha hecho `commit` ni `push` — restricción de `AGENTS.md` §5.3.
 
 ## 5. Decisiones adoptadas
@@ -293,12 +299,12 @@ parciales únicos.
 
 ## 9. Próximo paso recomendado
 
-**Iteración 2 — aislamiento por workspace.** La siguiente iteración debe:
+**Iteración 2B — autenticación con Better Auth.** La siguiente iteración debe:
 
-1. Esquema de dominio mínimo (workspaces, usuarios, membresías).
-2. Migraciones con Drizzle.
-3. Pruebas de aislamiento A1–A8 de `ADR-002`.
-4. Better Auth para autenticación.
+1. Integrar Better Auth para autenticación.
+2. Crear tablas `user`, `session`, `account`, `verification` de Better Auth.
+3. Conectar `domain_users.id` con `user.id` de Better Auth.
+4. Implementar endpoints de login/logout.
 
 **No empezar por la interfaz.** La iteración 2 sigue siendo la única cuyo fallo no se puede corregir
 a posteriori sin rehacer lo construido encima.
@@ -307,6 +313,7 @@ a posteriori sin rehacer lo construido encima.
 
 | Fecha | Cambio |
 |---|---|
+| 2026-07-28 | **Iteración 2A** — esquema de identidad y workspaces. Tablas `domain_users`, `workspaces`, `workspace_members` con enums cerrados (`workspace_type`, `member_role`, `member_status`, `visibility`). Restricciones CHECK para validación de datos (display_name no vacío, timezone no vacío, cycle_length_days > 0, cycle_start_weekday 1-7, combinaciones válidas de status/fechas). Índices parciales para membresías activas. Trigger diferido para invariante de OWNER activo. Migración versionada `0000_overjoyed_nocturne.sql`. Scripts `db:generate`, `db:migrate`, `db:test:reset`, `db:reset`. Base de pruebas desechable `nj_worktrace_test`. Pruebas de integración para esquema, restricciones e invariante de OWNER. CI actualizado para preparar bases y aplicar migraciones. |
 | 2026-07-28 | **Iteración 1.5D** — integración continua mínima. Workflow `.github/workflows/ci.yml` con activadores en push/PR a main y workflow_dispatch. Verifica: instalación reproducible, lint, TypeScript, pruebas unitarias, pruebas de integración contra PostgreSQL 18 real, build de Next.js, build de imagen Docker, arranque de contenedor, health check, readiness, recurso estático y usuario no root. Mecanismo de espera con bucle para servicios healthy (máx 30 intentos, 2s entre intentos). Limpieza y diagnóstico con `if: always()`. Sin secretos reales. Permisos mínimos (contents: read). Ejecución remota pendiente hasta primer push. |
 | 2026-07-28 | **Iteración 1.5C** — artefacto de producción en contenedor. Dockerfile multi-etapa con Node.js 24 slim, Corepack, pnpm 11.17.0. Imagen con output `standalone` de Next.js. Usuario no root (uid=1001). Tamaño: 376MB (91.4MB comprimido). Servicio `app` en compose.yaml con health check. Conexión a PostgreSQL mediante red Docker interna. Endpoints verificados: `/api/health`, `/api/ready`, `/container-check.txt`. Comportamiento sin PostgreSQL: health 200, ready 503, sin uncaughtException. Recuperación automática al restaurar PostgreSQL. Build funciona sin PostgreSQL activo. Sin secretos en la imagen. |
 | 2026-07-28 | **Iteración 1.5B** — persistencia local mínima. Docker Compose con PostgreSQL 18. Drizzle ORM 0.45.2 + drizzle-kit 0.31.10 (versiones exactas, líneas independientes). Capa de base de datos con pool de pg (máx 4 conexiones). Endpoints `/api/health` (liveness) y `/api/ready` (readiness). Script `db:check` para verificación manual. Pruebas de integración contra PostgreSQL real. Variables de entorno validadas con Zod (`DATABASE_URL` requerida). Sin migraciones, sin tablas de dominio. |
