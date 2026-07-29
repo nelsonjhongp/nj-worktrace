@@ -1,6 +1,5 @@
 import { pgTable, text, uuid, integer, timestamp, pgEnum, index, uniqueIndex } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 export const workspaceTypeEnum = pgEnum('workspace_type', ['PERSONAL', 'CLIENT', 'BUSINESS']);
 export const memberRoleEnum = pgEnum('member_role', ['OWNER', 'MEMBER', 'CLIENT', 'VIEWER']);

@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "tsx scripts/test-integration.ts",
+    "test:integration": "pnpm db:test:reset && vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && pnpm build",
     "db:up": "docker compose up -d postgres",

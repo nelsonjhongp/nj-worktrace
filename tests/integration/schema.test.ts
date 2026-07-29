@@ -380,6 +380,7 @@ describe('Owner Invariant', () => {
   });
 
   it('allows creating workspace and owner in same transaction', async () => {
+    let workspaceId: string;
     await testDb.transaction(async (tx) => {
       const workspace = await tx.insert(workspaces).values({
         publicId: '550e8400-e29b-41d4-a716-446655440020',
@@ -389,6 +390,7 @@ describe('Owner Invariant', () => {
         timezone: 'America/Lima',
         createdBy: userId1,
       }).returning();
+      workspaceId = workspace[0]!.id;
 
       await tx.insert(workspaceMembers).values({
         workspaceId: workspace[0]!.id,
@@ -398,6 +400,14 @@ describe('Owner Invariant', () => {
         joinedAt: new Date(),
       });
     });
+
+    const members = await testDb.select().from(workspaceMembers).where(
+      eq(workspaceMembers.workspaceId, workspaceId!)
+    );
+    expect(members).toHaveLength(1);
+    expect(members[0]!.userId).toBe(userId1);
+    expect(members[0]!.role).toBe('OWNER');
+    expect(members[0]!.status).toBe('ACTIVE');
   });
 
   it('rejects removing last active owner', async () => {
@@ -468,6 +478,17 @@ describe('Owner Invariant', () => {
         eq(workspaceMembers.userId, userId1)
       )
     );
+
+    const remainingOwners = await testDb.select().from(workspaceMembers).where(
+      and(
+        eq(workspaceMembers.workspaceId, workspaceId!),
+        eq(workspaceMembers.role, 'OWNER'),
+        eq(workspaceMembers.status, 'ACTIVE')
+      )
+    );
+    expect(remainingOwners).toHaveLength(1);
+    expect(remainingOwners[0]!.userId).toBe(userId2);
+    expect(remainingOwners[0]!.userId).not.toBe(userId1);
   });
 
   it('rejects creating workspace without any membership', async () => {
@@ -584,4 +605,3 @@ describe('Owner Invariant', () => {
     ).rejects.toThrow();
   });
 });
-
