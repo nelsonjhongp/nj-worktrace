@@ -22,9 +22,10 @@ Cinco frases que resumen el diseño:
 
 ## 2. Estado del proyecto
 
-**Iteraciones 2A y 2B fusionadas; iteración 2C en curso.** Existe código ejecutable con Next.js,
-PostgreSQL, Drizzle y Better Auth; 2C añade la resolución server-side del contexto de acceso a un
-workspace. Aún no existen la autorización por acción (2D) ni una interfaz de usuario.
+**Iteraciones 2A, 2B y 2C fusionadas (2C en PR #4); iteración 2D en curso en
+`feat/workspace-authorization`.** Existe código ejecutable con Next.js, PostgreSQL, Drizzle y Better
+Auth; 2C añadió la resolución server-side del contexto de acceso a un workspace y 2D añade la
+autorización por capacidad sobre ese contexto más `WorkspaceScope`. Aún no existe interfaz de usuario.
 
 Ver [`CURRENT-STATE.md`](CURRENT-STATE.md) para el estado exacto, la rama activa y las decisiones
 abiertas (`OD-xx`).
@@ -63,6 +64,7 @@ abiertas (`OD-xx`).
 | [`ADR-006`](decisions/ADR-006-authentication-and-sessions.md) | Better Auth, sesiones en base, sin JWT ni caché de sesión |
 | [`ADR-007`](decisions/ADR-007-runtime-and-deployment.md) | Node.js LTS, Next standalone, Docker, sin plataforma obligatoria |
 | [`ADR-008`](decisions/ADR-008-testing-strategy.md) | Vitest, PostgreSQL real, Playwright, aislamiento obligatorio |
+| [`ADR-009`](decisions/ADR-009-workspace-authorization.md) | Capacidades cerradas, motor puro, `WorkspaceScope`; sin Row-Level Security |
 
 ## 4. Enrutado por tipo de tarea
 
@@ -70,6 +72,7 @@ abiertas (`OD-xx`).
 |---|---|
 | Añadir una funcionalidad | `PRODUCT-SCOPE.md` → `USER-FLOWS.md` → `DATA-MODEL.md` |
 | Cambiar quién ve qué | `ROLES-AND-PERMISSIONS.md` → `ADR-002` → `ADR-003` |
+| Tocar capacidades, políticas o `WorkspaceScope` | `ROLES-AND-PERMISSIONS.md` §12 → `ADR-009` → `ADR-002` |
 | Diseñar una pantalla | `INFORMATION-ARCHITECTURE.md` → `UI-WIREFRAMES.md` |
 | Modelar datos | `DATA-MODEL.md` → `ADR-001` → `ADR-005` |
 | Priorizar trabajo | `MVP-PLAN.md` → `CURRENT-STATE.md` |

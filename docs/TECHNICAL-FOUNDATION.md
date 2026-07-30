@@ -189,10 +189,12 @@ Se listan aquí para que no se pierdan.
 
 ## 6. Qué **no** decide esta iteración
 
-Sigue sin decidirse, y no bloquea el andamiaje: Row-Level Security como refuerzo (**`OD-18`**,
-nueva) · herramienta de CI concreta · supervisión y registro estructurado · copias de seguridad y
-restauración · plataforma de alojamiento final · almacenamiento de adjuntos (`OD-05`) · correo
-(`OD-09`).
+Sigue sin decidirse, y no bloquea el andamiaje: herramienta de CI concreta · supervisión y registro
+estructurado · copias de seguridad y restauración · plataforma de alojamiento final · almacenamiento
+de adjuntos (`OD-05`) · correo (`OD-09`).
+
+`OD-18` (Row-Level Security) figuraba aquí como abierta. **Se cerró en la iteración 2D sin adoptar
+RLS**: ver [`ADR-009`](decisions/ADR-009-workspace-authorization.md) §8.
 
 ## 7. Fuentes
 

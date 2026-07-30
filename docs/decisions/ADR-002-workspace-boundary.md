@@ -43,6 +43,18 @@ resolver_acceso(usuario, workspace):
 Un 403 confirma que el recurso existe. Para un cliente que sondea identificadores, la diferencia
 entre "no existe" y "existe pero no es tuyo" es información filtrada. **Se responde 404 siempre.**
 
+**Precisión de la iteración 2D.** Esta regla gobierna la **frontera** —quién puede acceder al
+workspace— y se extiende a la denegación por rol dentro de él: que a un `CLIENT` le falte una capacidad
+del `OWNER` tampoco se le dice, porque decírselo revelaría qué funciones existen al otro lado. Los tres
+resultados se sirven con una respuesta **idéntica**: workspace inexistente, workspace ajeno y falta de
+capacidad.
+
+Un caso queda **fuera** de la regla: el **workspace archivado**. Quien lo recibe tiene membresía activa
+y ya sabe que el workspace existe, y [`USER-FLOWS.md`](../USER-FLOWS.md) F1 A3 y F7 exigen avisarle
+(«solo lectura con aviso»). Se responde `409` con el estado y nada más — no `403`, que reabriría esta
+sección, y no `404`, que contradiría los flujos. Ver
+[`ADR-009`](ADR-009-workspace-authorization.md) §6.
+
 ### 4. El rol es por workspace, nunca global
 
 No existen usuarios administradores globales. El mismo usuario puede ser `OWNER` en uno y `CLIENT` en
@@ -135,9 +147,13 @@ elimina la capa de información que se filtraba antes de llegar a ella.
 | A6 | Ningún identificador de un workspace es resoluble desde otro | Prueba de sondeo de identificadores |
 | A7 | Toda ruta usa `public_id` opaco; ningún nombre legible identifica un recurso | Revisión de rutas |
 | A8 | Ninguna validación revela la existencia de un workspace ajeno | Prueba sobre el alta de workspace |
+| **A9** | Workspace inexistente, workspace ajeno y falta de capacidad producen una respuesta **idéntica** en estado, cuerpo y cabeceras | Prueba de integración que compara las tres respuestas serializadas |
+| **A10** | La respuesta de un workspace archivado no es un 404 y no revela nada más que el estado | Prueba de integración |
 
-Estas ocho reglas son el criterio de terminado de la iteración 2 de
-[`MVP-PLAN.md`](../MVP-PLAN.md).
+Las diez reglas son el criterio de terminado de la iteración 2 de [`MVP-PLAN.md`](../MVP-PLAN.md).
+`A9` y `A10` se añadieron en la iteración 2D, cuando existió por primera vez una respuesta HTTP que
+comprobar. `A2` sigue **sin verificar**: no existe ninguna entidad de contenido cuyo filtrado por
+`workspace_id` se pueda comprobar.
 
 ## Revisión
 

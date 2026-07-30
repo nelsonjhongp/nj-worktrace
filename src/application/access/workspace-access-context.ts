@@ -1,8 +1,6 @@
-import type { WorkspaceRole } from '@/modules/workspaces';
+import type { WorkspaceId, WorkspaceRole, WorkspaceStatus } from '@/modules/workspaces';
 
-export type { WorkspaceRole };
-
-export type WorkspaceStatus = 'ACTIVE' | 'ARCHIVED';
+export type { WorkspaceId, WorkspaceRole, WorkspaceStatus };
 
 /**
  * Contexto de acceso a un workspace: la respuesta completa a «quién es y qué es aquí».
@@ -22,10 +20,15 @@ export type WorkspaceStatus = 'ACTIVE' | 'ARCHIVED';
  * `workspaceStatus` está aquí, y no como resultado de fallo, porque un workspace archivado
  * con membresía activa **concede** acceso de solo lectura (USER-FLOWS F1 A3 y F14). La
  * imposición de esa lectura corresponde a 2D.
+ *
+ * `workspaceId` es un `WorkspaceId`, no una cadena: la marca nominal la aplica el módulo
+ * `workspaces` en su frontera de persistencia, así que un contexto no se puede construir con un
+ * identificador llegado de fuera. La forma en tiempo de ejecución sigue siendo exactamente
+ * cuatro campos primitivos (D-35): la marca es solo de tipo y no sobrevive a la serialización.
  */
 export type WorkspaceAccessContext = {
   readonly userId: string;
-  readonly workspaceId: string;
+  readonly workspaceId: WorkspaceId;
   readonly role: WorkspaceRole;
   readonly workspaceStatus: WorkspaceStatus;
 };

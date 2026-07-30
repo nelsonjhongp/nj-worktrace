@@ -54,6 +54,16 @@ export const workspaceMembersRelations = relations(workspaceMembers, ({ one }) =
 export type WorkspaceRole = (typeof memberRoleEnum.enumValues)[number];
 export type WorkspaceMemberStatus = (typeof memberStatusEnum.enumValues)[number];
 
+/**
+ * Estado del workspace tal como lo observa quien ya tiene acceso.
+ *
+ * No es un enum de PostgreSQL: se **deriva** de `workspaces.archived_at`. Vive aquí, con el
+ * resto de los tipos cerrados del módulo, porque el módulo `workspaces` es su dueño y un
+ * tipo cerrado declarado en dos sitios se desincroniza en cuanto uno de los dos cambie
+ * (AGENTS.md §6).
+ */
+export type WorkspaceStatus = 'ACTIVE' | 'ARCHIVED';
+
 export type Workspace = typeof workspaces.$inferSelect;
 export type NewWorkspace = typeof workspaces.$inferInsert;
 export type WorkspaceMember = typeof workspaceMembers.$inferSelect;

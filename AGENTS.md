@@ -10,15 +10,16 @@ Cursor, Aider u otros). No depende de ninguna herramienta concreta.
 `nj-worktrace` es una aplicación personal multiespacio para registrar trabajo (tiempo,
 funcionalidades, resultados, evidencias, reuniones) y compartir una vista controlada con clientes.
 
-**Fase actual: iteración 2C — contexto de acceso a workspace, en la rama
-`feat/workspace-access-context`.**
+**Fase actual: iteración 2D — autorización por acción y `WorkspaceScope`, en la rama
+`feat/workspace-authorization`.**
 
 Existe código ejecutable: `package.json`, Next.js 16 App Router, TypeScript estricto, PostgreSQL 18
 con Drizzle, migraciones `0000` y `0001`, Better Auth 1.6.25 con sesiones persistidas en PostgreSQL,
 imagen Docker de producción, pruebas de integración contra PostgreSQL real y CI. Las iteraciones 2A
-(esquema de identidad y workspaces) y 2B (autenticación y sesiones) están **fusionadas en `main`**.
+(esquema de identidad y workspaces), 2B (autenticación y sesiones) y 2C (contexto de acceso a
+workspace, PR #4) están **fusionadas en `main`**.
 
-**Todavía no existen** la autorización por acción (iteración 2D) ni ninguna interfaz de usuario.
+**Todavía no existe** ninguna interfaz de usuario.
 
 ## 2. Orden de lectura obligatorio
 
@@ -62,21 +63,31 @@ Un cambio de **documentación** está terminado cuando:
 
 ## 5. Restricciones actuales
 
-### 5.1 Vigentes en la iteración 2C
+### 5.1 Vigentes en la iteración 2D
 
 **No hagas** nada de lo siguiente sin instrucción explícita y nueva del usuario:
 
-- Instalar dependencias nuevas.
+- Instalar dependencias nuevas. En particular, **ninguna librería externa de autorización**
+  (`ADR-009`, alternativas consideradas).
 - Crear migraciones o modificar el esquema. El esquema actual (`0000`, `0001`) es el que hay.
-- Implementar autorización por acción: capacidades, `can(...)`, `requireCapability(...)`, políticas
-  por rol o traducción a respuestas HTTP. Es la iteración **2D**.
-- Asignar códigos de estado (`401`, `403`, `404`), usar `NextResponse` o `notFound()` dentro de la
-  resolución de acceso.
+- Implementar módulos de negocio: proyectos, ciclos, work items, sesiones, evidencias,
+  actualizaciones, reuniones, solicitudes o reviews. 2D define **quién puede** actuar sobre ellos, no
+  las operaciones.
+- Crear repositorios ficticios para demostrar un patrón.
 - Crear interfaz: componentes React, rutas visuales, layouts, dashboard, selector de workspace,
-  listado de workspaces o navegación. La interfaz se aborda **después** de fusionar 2C y 2D.
+  listado de workspaces o navegación. La interfaz se aborda **después** de fusionar 2D.
 - Implementar invitaciones, gestión de miembros, cambio de roles o borrado de cuentas.
-- Introducir middleware global, memoización o caché de la resolución de acceso.
-- Adoptar Row-Level Security: es `OD-18`, decisión abierta.
+- Crear o restaurar workspaces. La restauración de un workspace archivado es `OD-19`, decisión
+  abierta: **no añadas una capacidad de desarchivado**.
+- Introducir middleware global, memoización o caché de la resolución de acceso ni de la autorización.
+- Adoptar Row-Level Security: `OD-18` está **cerrada en negativo** por
+  [`ADR-009`](docs/decisions/ADR-009-workspace-authorization.md) §8. Reabrirla exige un ADR nuevo.
+
+**Sí forma parte de 2D**, y las restricciones anteriores no lo impiden: definir capacidades, la matriz
+rol → capacidad, el motor puro de políticas, `WorkspaceScope`, el orquestador de autorización y la
+traducción de resultados a `Response` con sus códigos de estado. Esa traducción vive únicamente en
+`src/platform/http/`; `NextResponse`, `notFound()` y `redirect()` siguen prohibidos en toda la
+aplicación.
 
 Que algo esté **decidido** en un ADR no significa que esté **autorizado a crearse**. La decisión y
 la construcción son iteraciones distintas.
@@ -95,6 +106,11 @@ El modelo de datos en `docs/DATA-MODEL.md` es **conceptual**: describe 22 entida
 - Introducir JWT como sesión de navegador (`ADR-006` T6-R11).
 - Usar dobles de base de datos en pruebas de autorización (`ADR-008` T8-R1).
 - Ejecutar `drizzle-kit push` fuera de la base local desechable (`ADR-005` T5-R6).
+- Implementar la autorización dentro de un módulo de dominio (`ADR-001`, regla 3) o consultarla desde
+  uno (`ADR-009` T9-R15).
+- Invocar una función de repositorio de negocio sin `WorkspaceScope` (`ADR-005` T5-R5), o buscar un
+  recurso globalmente para comparar su `workspace_id` después (`ADR-005` T5-R13).
+- Definir literales de capacidad fuera de `workspace-capability.ts` y su matriz (`ADR-009` T9-R12).
 
 ### 5.3 Siempre
 

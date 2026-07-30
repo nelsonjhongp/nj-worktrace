@@ -71,6 +71,83 @@ describe('Module Boundary', () => {
     return targetModule !== undefined && moduleName(sourcePath) !== targetModule;
   }
 
+  /**
+   * Resuelve un especificador a una ruta con raíz en `/src`, **tanto si es un alias como si es
+   * relativo**, y con el mismo resultado en Windows y en Linux.
+   *
+   * Difiere de `resolveImportPath` en que ancla el alias en `/src`: `@/platform/http` y
+   * `../../platform/http` producen aquí la misma ruta, que es lo que permite comparar capas sin
+   * duplicar cada regla en dos formas.
+   */
+  function resolveToSrcPath(sourcePath: string, specifier: string): string | undefined {
+    const normalizedSourcePath = sourcePath.replaceAll('\\', '/');
+
+    if (specifier.startsWith('@/')) {
+      return posix.normalize(`/src/${specifier.slice(2)}`);
+    }
+
+    if (specifier.startsWith('.')) {
+      return posix.normalize(posix.join(posix.dirname(normalizedSourcePath), specifier));
+    }
+
+    // Paquete externo: no es una ruta del proyecto y no participa en fronteras de capa.
+    return undefined;
+  }
+
+  /** `true` si `resolved` es el objetivo o vive dentro de él. Evita casar prefijos parciales. */
+  function isWithin(resolved: string, target: string): boolean {
+    return resolved === target || resolved.startsWith(`${target}/`);
+  }
+
+  /**
+   * Fronteras de capa que no dependen de la forma del especificador.
+   *
+   * Cada una se comprueba sobre la **ruta resuelta**, de modo que `@/platform/http/x` y
+   * `../../platform/http/x` se detectan igual. Escribir `../..` en vez de `@/` fue exactamente la
+   * vía que evadía la versión anterior de estas comprobaciones (ADR-009 T9-R13 y T9-R15).
+   */
+  const LAYER_BOUNDARIES = [
+    {
+      name: 'modules → application/authorization',
+      from: '/src/modules',
+      to: '/src/application/authorization',
+    },
+    {
+      name: 'application → platform/http',
+      from: '/src/application',
+      to: '/src/platform/http',
+    },
+    {
+      name: 'application → platform/database',
+      from: '/src/application',
+      to: '/src/platform/database',
+    },
+    {
+      name: 'platform/http → workspace-policy',
+      from: '/src/platform/http',
+      to: '/src/application/authorization/workspace-policy',
+    },
+    {
+      name: 'app → workspace-policy',
+      from: '/src/app',
+      to: '/src/application/authorization/workspace-policy',
+    },
+  ] as const;
+
+  function crossesLayerBoundary(
+    sourcePath: string,
+    specifier: string,
+    boundary: (typeof LAYER_BOUNDARIES)[number],
+  ): boolean {
+    if (!isWithin(posix.dirname(sourcePath.replaceAll('\\', '/')), boundary.from)) {
+      return false;
+    }
+
+    const resolved = resolveToSrcPath(sourcePath, specifier);
+
+    return resolved !== undefined && isWithin(resolved, boundary.to);
+  }
+
   it('allows internal/ imports only from the module that owns them', () => {
     const violations = [
       ['/src/modules/workspaces/server.ts', '../identity/internal/session'],
@@ -188,5 +265,154 @@ describe('Module Boundary', () => {
     ];
 
     expect(violations).toEqual([]);
+  });
+
+  it('the pure policy engine imports no framework, no bare data package, no Better Auth', () => {
+    // Paquetes externos: no admiten forma relativa, así que basta el nombre.
+    const authorizationFiles = allSourceFiles.filter(({ path }) =>
+      path.startsWith('/src/application/authorization/'),
+    );
+
+    expect(authorizationFiles.length).toBeGreaterThan(0);
+
+    const violations = [
+      ...importsMatching(authorizationFiles, /from\s+['"]next(?:\/[^'"]*)?['"]/),
+      ...importsMatching(authorizationFiles, /from\s+['"]drizzle-orm[^'"]*['"]/),
+      ...importsMatching(authorizationFiles, /from\s+['"](?:better-auth|@better-auth)[^'"]*['"]/),
+    ];
+
+    expect(violations).toEqual([]);
+  });
+
+  it('the HTTP translation imports no framework and no bare data package', () => {
+    const httpFiles = allSourceFiles.filter(({ path }) =>
+      path.startsWith('/src/platform/http/'),
+    );
+
+    expect(httpFiles.length).toBeGreaterThan(0);
+
+    const violations = [
+      ...importsMatching(httpFiles, /from\s+['"]drizzle-orm[^'"]*['"]/),
+      ...importsMatching(httpFiles, /from\s+['"]next(?:\/[^'"]*)?['"]/),
+      ...importsMatching(httpFiles, /from\s+['"](?:better-auth|@better-auth)[^'"]*['"]/),
+    ];
+
+    expect(violations).toEqual([]);
+  });
+
+  it('layer boundaries are detected through aliases and through relative paths alike', () => {
+    // Fixtures puros: rutas que no existen en el árbol, solo para demostrar que la comprobación
+    // reacciona a las dos formas del mismo import. Sin ellos, la prueba de abajo pasaría hoy y
+    // seguiría pasando el día que alguien la evadiera con `../..`.
+    const mustReject = [
+      ['/src/modules/workspaces/internal/x.ts', '@/application/authorization/workspace-policy'],
+      ['/src/modules/workspaces/internal/x.ts', '../../../application/authorization/workspace-policy'],
+      ['/src/application/authorization/x.ts', '@/platform/http/workspace-authorization-response'],
+      ['/src/application/authorization/x.ts', '../../platform/http/workspace-authorization-response'],
+      ['/src/application/access/x.ts', '@/platform/database/client'],
+      ['/src/application/access/x.ts', '../../platform/database/client'],
+      ['/src/platform/http/x.ts', '@/application/authorization/workspace-policy'],
+      ['/src/platform/http/x.ts', '../../application/authorization/workspace-policy'],
+      ['/src/app/api/w/route.ts', '@/application/authorization/workspace-policy'],
+      ['/src/app/api/w/route.ts', '../../../application/authorization/workspace-policy'],
+    ] as const;
+
+    for (const [sourcePath, specifier] of mustReject) {
+      const crossed = LAYER_BOUNDARIES.some((boundary) =>
+        crossesLayerBoundary(sourcePath, specifier, boundary),
+      );
+
+      expect(crossed, `no se detectó: ${sourcePath} → ${specifier}`).toBe(true);
+    }
+
+    // Movimiento legítimo dentro de cada capa: no debe activar ninguna frontera.
+    const mustAllow = [
+      ['/src/application/authorization/x.ts', '../access/workspace-access-context'],
+      ['/src/application/authorization/x.ts', './workspace-policy'],
+      ['/src/application/access/x.ts', '@/modules/workspaces'],
+      ['/src/platform/http/x.ts', '@/application/authorization/authorize-workspace-action'],
+      ['/src/platform/database/x.ts', 'drizzle-orm'],
+      ['/src/modules/workspaces/x.ts', './internal/access'],
+      ['/src/app/api/w/route.ts', '@/application/authorization/authorize-workspace-action'],
+      ['/src/app/api/w/route.ts', '@/platform/http/workspace-authorization-response'],
+    ] as const;
+
+    for (const [sourcePath, specifier] of mustAllow) {
+      const crossed = LAYER_BOUNDARIES.some((boundary) =>
+        crossesLayerBoundary(sourcePath, specifier, boundary),
+      );
+
+      expect(crossed, `falso positivo: ${sourcePath} → ${specifier}`).toBe(false);
+    }
+  });
+
+  it('no source file crosses a layer boundary, by alias or by relative path', () => {
+    const violations = allSourceFiles.flatMap(({ path, content }) =>
+      [...content.matchAll(/from\s+['"]([^'"]+)['"]/g)].flatMap(([, specifier]) =>
+        LAYER_BOUNDARIES.filter((boundary) =>
+          crossesLayerBoundary(path, specifier!, boundary),
+        ).map((boundary) => `${boundary.name} — ${path}: ${specifier}`),
+      ),
+    );
+
+    expect(violations).toEqual([]);
+  });
+
+  it('capability literals exist only in workspace-capability.ts', () => {
+    const catalogPath = '/src/application/authorization/workspace-capability.ts';
+    const catalog = allSourceFiles.find(({ path }) => path === catalogPath);
+
+    expect(catalog).toBeDefined();
+
+    const capabilities = [...catalog!.content.matchAll(/^ {2}'([a-z]+\.[a-z]+)',$/gm)].map(
+      ([, capability]) => capability!,
+    );
+
+    expect(capabilities.length).toBe(11);
+
+    // La matriz está indexada por capacidad, así que sus claves son literales inevitables: es la
+    // única excepción. Fuera de esos dos archivos se importa la constante, porque una cadena
+    // literal es una capacidad duplicada esperando a divergir.
+    const allowed = [catalogPath, '/src/application/authorization/workspace-policy.ts'];
+
+    const filesWithLiterals = allSourceFiles
+      .filter(({ content }) => capabilities.some((c) => content.includes(`'${c}'`)))
+      .map(({ path }) => path)
+      .sort();
+
+    // Se afirma el conjunto **observado**, no la constante de arriba: así la prueba falla tanto si
+    // aparece un tercer archivo con literales como si uno de los dos deja de tenerlos.
+    expect(filesWithLiterals).toEqual([...allowed].sort());
+  });
+
+  it('the only cast to WorkspaceId lives at the persistence boundary of modules/workspaces', () => {
+    // La marca nominal solo se puede aplicar donde el identificador procede de PostgreSQL. Si
+    // apareciera un segundo `as WorkspaceId`, la garantía dejaría de valer sin que nada avisara.
+    const boundary = '/src/modules/workspaces/internal/access.ts';
+    const casting = allSourceFiles
+      .filter(({ content }) => /as\s+WorkspaceId\b/.test(content))
+      .map(({ path }) => path);
+
+    expect(casting).toEqual([boundary]);
+
+    // Y está inmediatamente después del repositorio, no en una capa superior.
+    const source = allSourceFiles.find(({ path }) => path === boundary);
+    expect(source?.content).toContain('findWorkspaceAccessRow');
+  });
+
+  it('neither the access context nor the scope re-brand the workspace identifier', () => {
+    // Ambos reciben el `WorkspaceId` ya marcado; una aserción de tipo aquí significaría que
+    // alguien ha reabierto el camino lateral que la iteración 2D cerró.
+    for (const path of [
+      '/src/application/access/workspace-access-context.ts',
+      '/src/application/access/workspace-scope.ts',
+      '/src/application/access/resolve-workspace-access.ts',
+      '/src/application/authorization/authorize-workspace-action.ts',
+    ]) {
+      const source = allSourceFiles.find((file) => file.path === path);
+
+      expect(source, `falta ${path}`).toBeDefined();
+      expect(source!.content).not.toMatch(/\bas\s+WorkspaceId\b/);
+    }
   });
 });

@@ -1,122 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
-import { getDb } from '@/platform/database/client';
 import { auth } from '@/modules/identity/server';
-import { domainUsers } from '@/modules/identity';
-import { workspaces, workspaceMembers } from '@/modules/workspaces';
-import type { WorkspaceMemberStatus, WorkspaceRole } from '@/modules/workspaces';
 import { resolveWorkspaceAccess } from '@/application/access/resolve-workspace-access';
-
-const db = getDb();
-const PASSWORD = 'password123';
-
-type TestUser = {
-  readonly userId: string;
-  readonly email: string;
-  readonly name: string;
-  readonly headers: Headers;
-};
-
-/**
- * Crea una identidad real con Better Auth y devuelve sus cabeceras con la cookie de sesión
- * emitida por la propia biblioteca. Nunca se insertan filas en `user`, `account`, `session`
- * ni contraseñas a mano (ADR-008 T8-R1): `domain_users` aparece por el trigger de
- * provisión, igual que en producción.
- */
-async function createAuthenticatedUser(): Promise<TestUser> {
-  const email = `access-${randomUUID()}@example.com`;
-  const name = `Access ${randomUUID().slice(0, 8)}`;
-
-  const response = await auth.api.signUpEmail({
-    body: { email, password: PASSWORD, name },
-    asResponse: true,
-  });
-
-  expect(response.status).toBe(200);
-
-  const setCookie = response.headers.get('set-cookie');
-  expect(setCookie).toBeTruthy();
-
-  const headers = new Headers();
-  headers.set('cookie', setCookie!.split(';', 1)[0]!);
-
-  const body = (await response.json()) as { user: { id: string } };
-  const userId = body.user.id;
-
-  const [domainUser] = await db
-    .select({ id: domainUsers.id })
-    .from(domainUsers)
-    .where(eq(domainUsers.id, userId));
-
-  expect(domainUser).toBeDefined();
-
-  return { userId, email, name, headers };
-}
-
-type TestWorkspace = {
-  readonly workspaceId: string;
-  readonly workspacePublicId: string;
-};
-
-/**
- * Crea un workspace con su OWNER activo en la misma transacción: el invariante de OWNER es
- * un trigger de restricción diferido y rechaza un workspace sin propietario activo.
- */
-async function createWorkspaceWithOwner(params: {
-  readonly ownerUserId: string;
-  readonly archived?: boolean;
-}): Promise<TestWorkspace> {
-  const publicId = randomUUID();
-  let workspaceId = '';
-
-  await db.transaction(async (tx) => {
-    const [workspace] = await tx
-      .insert(workspaces)
-      .values({
-        publicId,
-        name: `Access Workspace ${publicId.slice(0, 8)}`,
-        type: 'CLIENT',
-        defaultVisibility: 'INTERNAL',
-        timezone: 'America/Lima',
-        createdBy: params.ownerUserId,
-        archivedAt: params.archived === true ? new Date() : null,
-      })
-      .returning();
-
-    workspaceId = workspace!.id;
-
-    await tx.insert(workspaceMembers).values({
-      workspaceId,
-      userId: params.ownerUserId,
-      role: 'OWNER',
-      status: 'ACTIVE',
-      joinedAt: new Date(),
-    });
-  });
-
-  return { workspaceId, workspacePublicId: publicId };
-}
-
-/** Añade una membresía con las marcas de tiempo que exige cada estado del esquema. */
-async function addMember(params: {
-  readonly workspaceId: string;
-  readonly userId: string;
-  readonly role: WorkspaceRole;
-  readonly status: WorkspaceMemberStatus;
-}): Promise<void> {
-  const now = new Date();
-
-  await db.insert(workspaceMembers).values({
-    workspaceId: params.workspaceId,
-    userId: params.userId,
-    role: params.role,
-    status: params.status,
-    invitedAt: params.status === 'INVITED' ? now : null,
-    joinedAt: params.status === 'INVITED' ? null : now,
-    removedAt: params.status === 'REMOVED' ? now : null,
-  });
-}
+import {
+  archiveDomainUser,
+  createAuthenticatedUser,
+  deleteDomainUser,
+} from '../../support/identity';
+import { addMember, createWorkspaceWithOwner } from '../../support/workspaces';
 
 describe('resolveWorkspaceAccess', () => {
   describe('Membresía activa', () => {
@@ -253,7 +144,7 @@ describe('resolveWorkspaceAccess', () => {
       const workspace = await createWorkspaceWithOwner({ ownerUserId: owner.userId });
       const subject = await createAuthenticatedUser();
 
-      await db.delete(domainUsers).where(eq(domainUsers.id, subject.userId));
+      await deleteDomainUser(subject.userId);
 
       const resolution = await resolveWorkspaceAccess({
         headers: subject.headers,
@@ -275,10 +166,7 @@ describe('resolveWorkspaceAccess', () => {
         status: 'ACTIVE',
       });
 
-      await db
-        .update(domainUsers)
-        .set({ archivedAt: new Date() })
-        .where(eq(domainUsers.id, subject.userId));
+      await archiveDomainUser(subject.userId);
 
       const resolution = await resolveWorkspaceAccess({
         headers: subject.headers,
