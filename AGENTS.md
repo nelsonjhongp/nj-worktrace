@@ -10,9 +10,15 @@ Cursor, Aider u otros). No depende de ninguna herramienta concreta.
 `nj-worktrace` es una aplicación personal multiespacio para registrar trabajo (tiempo,
 funcionalidades, resultados, evidencias, reuniones) y compartir una vista controlada con clientes.
 
-**Fase actual: iteración 1 cerrada — producto y stack decididos, sin código todavía.**
-No existe `package.json`, ni dependencias, ni esquema, ni contenedores.
-La siguiente iteración (1.5) creará el andamiaje ejecutable **cuando el usuario lo autorice**.
+**Fase actual: iteración 2C — contexto de acceso a workspace, en la rama
+`feat/workspace-access-context`.**
+
+Existe código ejecutable: `package.json`, Next.js 16 App Router, TypeScript estricto, PostgreSQL 18
+con Drizzle, migraciones `0000` y `0001`, Better Auth 1.6.25 con sesiones persistidas en PostgreSQL,
+imagen Docker de producción, pruebas de integración contra PostgreSQL real y CI. Las iteraciones 2A
+(esquema de identidad y workspaces) y 2B (autenticación y sesiones) están **fusionadas en `main`**.
+
+**Todavía no existen** la autorización por acción (iteración 2D) ni ninguna interfaz de usuario.
 
 ## 2. Orden de lectura obligatorio
 
@@ -39,9 +45,13 @@ La siguiente iteración (1.5) creará el andamiaje ejecutable **cuando el usuari
    `if (workspace.name === 'Sotravil')`, es un defecto. Los workspaces se identifican por un
    `public_id` opaco; su nombre no identifica nada y no debe gobernar ninguna decisión.
 
-## 4. Definición de terminado (fase documental)
+## 4. Definición de terminado
 
-Un cambio está terminado cuando:
+Un cambio de **código** está terminado cuando `pnpm verify` (lint · tipos · unidad · integración ·
+build) pasa entero, `pnpm db:generate` no produce migración nueva salvo que el cambio la busque, y
+las fronteras modulares siguen siendo verificables (`tests/module-boundary.test.ts`).
+
+Un cambio de **documentación** está terminado cuando:
 
 - [ ] El documento afectado está actualizado y es internamente coherente.
 - [ ] `docs/CURRENT-STATE.md` refleja el nuevo estado (decisiones nuevas o cerradas incluidas).
@@ -52,21 +62,27 @@ Un cambio está terminado cuando:
 
 ## 5. Restricciones actuales
 
-### 5.1 Vigentes hasta que el usuario autorice la iteración 1.5
+### 5.1 Vigentes en la iteración 2C
 
 **No hagas** nada de lo siguiente sin instrucción explícita y nueva del usuario:
 
-- Crear `package.json` o instalar dependencias.
-- Ejecutar `create-next-app` o cualquier andamiaje de framework.
-- Crear Docker Compose, Dockerfile o configuración de infraestructura.
-- Crear migraciones, tablas o esquema ejecutable.
-- Implementar Better Auth, sesiones o cualquier autenticación funcional.
-- Crear componentes o interfaz.
+- Instalar dependencias nuevas.
+- Crear migraciones o modificar el esquema. El esquema actual (`0000`, `0001`) es el que hay.
+- Implementar autorización por acción: capacidades, `can(...)`, `requireCapability(...)`, políticas
+  por rol o traducción a respuestas HTTP. Es la iteración **2D**.
+- Asignar códigos de estado (`401`, `403`, `404`), usar `NextResponse` o `notFound()` dentro de la
+  resolución de acceso.
+- Crear interfaz: componentes React, rutas visuales, layouts, dashboard, selector de workspace,
+  listado de workspaces o navegación. La interfaz se aborda **después** de fusionar 2C y 2D.
+- Implementar invitaciones, gestión de miembros, cambio de roles o borrado de cuentas.
+- Introducir middleware global, memoización o caché de la resolución de acceso.
+- Adoptar Row-Level Security: es `OD-18`, decisión abierta.
 
-Que el stack esté **decidido** (ADR-004…008) no significa que esté **autorizado a crearse**. La
-decisión y la construcción son iteraciones distintas.
+Que algo esté **decidido** en un ADR no significa que esté **autorizado a crearse**. La decisión y
+la construcción son iteraciones distintas.
 
-El modelo de datos en `docs/DATA-MODEL.md` es **conceptual**. No es un esquema para ejecutar.
+El modelo de datos en `docs/DATA-MODEL.md` es **conceptual**: describe 22 entidades, de las que solo
+`domain_users`, `workspaces` y `workspace_members` existen como esquema ejecutable.
 
 ### 5.2 Vigentes siempre, salvo ADR que las levante
 

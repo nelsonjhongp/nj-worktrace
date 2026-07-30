@@ -22,11 +22,12 @@ Cinco frases que resumen el diseño:
 
 ## 2. Estado del proyecto
 
-**Iteración 1 completa: stack técnico decidido.** Sigue sin haber código de producto: no hay
-`package.json`, ni dependencias, ni esquema, ni contenedores. Lo que existe es la fundación
-documental (iteraciones 0 y 0.1) y las decisiones técnicas (ADR-004 a ADR-008).
+**Iteraciones 2A y 2B fusionadas; iteración 2C en curso.** Existe código ejecutable con Next.js,
+PostgreSQL, Drizzle y Better Auth; 2C añade la resolución server-side del contexto de acceso a un
+workspace. Aún no existen la autorización por acción (2D) ni una interfaz de usuario.
 
-Ver [`CURRENT-STATE.md`](CURRENT-STATE.md) para el estado exacto y las decisiones abiertas (`OD-xx`).
+Ver [`CURRENT-STATE.md`](CURRENT-STATE.md) para el estado exacto, la rama activa y las decisiones
+abiertas (`OD-xx`).
 
 ## 3. Índice de documentos
 

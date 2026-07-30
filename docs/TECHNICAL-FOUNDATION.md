@@ -6,7 +6,9 @@ Resumen del stack técnico y **prueba de compatibilidad** con la fundación de p
 > cuadro de conjunto, la política de versiones y la comprobación de que las piezas encajan entre sí
 > y con las iteraciones 0 y 0.1.
 
-**Estado: iteración 1 cerrada. No existe código todavía.**
+**Estado: la fundación técnica de la iteración 1 está cerrada y aplicada.** Las iteraciones 2A y 2B
+ya proporcionan código ejecutable, esquema y autenticación; 2C incorpora la resolución del contexto
+de acceso a workspace. La autorización por acción (2D) y la interfaz siguen pendientes.
 
 ---
 

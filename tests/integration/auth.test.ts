@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { getDb } from '@/platform/database/client';
 import { auth } from '@/modules/identity/server';
-import { authUser, authAccount, authSession } from '@/modules/identity';
+import { authUser, authAccount, authSession } from '@/modules/identity/database-schema';
 import { domainUsers } from '@/modules/identity';
 import { eq, inArray } from 'drizzle-orm';
 import { Pool } from 'pg';

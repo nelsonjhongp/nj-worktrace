@@ -1,4 +1,3 @@
-import { auth } from '@/modules/identity/server';
-import { toNextJsHandler } from 'better-auth/next-js';
+import { authHandler } from '@/modules/identity/server';
 
-export const { GET, POST } = toNextJsHandler(auth);
+export const { GET, POST } = authHandler;
