@@ -22,11 +22,66 @@ const identityDatabaseSchema = {
     'La superficie de composición de esquema solo la consume src/platform/database/schema.ts (ADR-006 T6-R3).',
 };
 
-/** Las rutas no consultan la base: pasan por un servicio de aplicación (ADR-004 §3.3). */
-const dataAccessFromRoutes = {
-  group: ['drizzle-orm', 'drizzle-orm/*', '@/platform/database/*'],
+/**
+ * Ni las rutas ni la capa de aplicación ni la traducción HTTP acceden a datos: pasan por la
+ * superficie pública de un módulo (ADR-004 §3.3, ADR-001 §c).
+ *
+ * Cada frontera basada en una ruta del proyecto se declara DOS veces: con el alias `@/…` y con la
+ * forma de comodín que atrapa el especificador relativo equivalente. Sin la segunda, escribir
+ * `../../platform/database/client` en vez de `@/platform/database/client` evade la regla.
+ */
+const dataAccess = {
+  group: [
+    'drizzle-orm',
+    'drizzle-orm/*',
+    '@/platform/database',
+    '@/platform/database/*',
+    '**/platform/database',
+    '**/platform/database/*',
+  ],
   message:
-    'src/app/ no accede a datos: toda lectura pasa por un servicio de aplicación (ADR-004 §3.3).',
+    'Aquí no se accede a datos: toda lectura pasa por la superficie pública de un módulo (ADR-004 §3.3).',
+};
+
+/** El motor de autorización y la capa de aplicación no conocen el framework (ADR-004 §3.5). */
+const nextFramework = {
+  group: ['next', 'next/*'],
+  message:
+    'src/application/ y src/platform/http/ no dependen de Next.js: la adaptación al framework vive en src/app/ (ADR-004 §3.5).',
+};
+
+/** La dependencia con la traducción HTTP va en un solo sentido (ADR-009 §5). */
+const platformHttp = {
+  group: [
+    '@/platform/http',
+    '@/platform/http/*',
+    '**/platform/http',
+    '**/platform/http/*',
+  ],
+  message:
+    'src/application/ no conoce HTTP: platform/http traduce resultados de aplicación, nunca al revés (ADR-009 §5).',
+};
+
+/** Un módulo de dominio no autoriza (ADR-001, regla derivada 3). */
+const applicationAuthorization = {
+  group: [
+    '@/application/authorization',
+    '@/application/authorization/*',
+    '**/application/authorization',
+    '**/application/authorization/*',
+  ],
+  message:
+    'La autorización nunca se implementa ni se consulta dentro de un módulo de dominio (ADR-001, regla 3).',
+};
+
+/** El motor puro tiene un solo consumidor: el orquestador de autorización (ADR-009 §4). */
+const policyEngine = {
+  group: [
+    '@/application/authorization/workspace-policy',
+    '**/authorization/workspace-policy',
+  ],
+  message:
+    'El motor de políticas se consume a través de authorizeWorkspaceAction, no directamente (ADR-009 §4).',
 };
 
 const restrict = (patterns) => ({
@@ -44,9 +99,19 @@ export default [
     },
   },
   {
+    // Módulos de dominio: no autorizan y no orquestan.
+    files: ['src/modules/**/*.{ts,tsx}'],
+    rules: restrict([
+      foreignInternals,
+      betterAuth,
+      identityDatabaseSchema,
+      applicationAuthorization,
+    ]),
+  },
+  {
     // Dueño de Better Auth.
     files: ['src/modules/identity/**/*.{ts,tsx}'],
-    rules: restrict([foreignInternals, identityDatabaseSchema]),
+    rules: restrict([foreignInternals, identityDatabaseSchema, applicationAuthorization]),
   },
   {
     // Único consumidor de producción de la superficie de composición de esquema.
@@ -54,9 +119,39 @@ export default [
     rules: restrict([foreignInternals, betterAuth]),
   },
   {
-    // Enrutado y composición: sin acceso a datos.
+    // Capa transversal: compone superficies de módulo. Sin datos, sin framework, sin HTTP.
+    files: ['src/application/**/*.{ts,tsx}'],
+    rules: restrict([
+      foreignInternals,
+      betterAuth,
+      identityDatabaseSchema,
+      dataAccess,
+      nextFramework,
+      platformHttp,
+    ]),
+  },
+  {
+    // Traducción HTTP: solo conoce el vocabulario de resultados. Sin datos, sin políticas.
+    files: ['src/platform/http/**/*.{ts,tsx}'],
+    rules: restrict([
+      foreignInternals,
+      betterAuth,
+      identityDatabaseSchema,
+      dataAccess,
+      nextFramework,
+      policyEngine,
+    ]),
+  },
+  {
+    // Enrutado y composición: sin acceso a datos y sin políticas propias.
     files: ['src/app/**/*.{ts,tsx}'],
-    rules: restrict([foreignInternals, betterAuth, identityDatabaseSchema, dataAccessFromRoutes]),
+    rules: restrict([
+      foreignInternals,
+      betterAuth,
+      identityDatabaseSchema,
+      dataAccess,
+      policyEngine,
+    ]),
   },
   {
     // Las pruebas pueden inspeccionar el esquema; no pueden importar Better Auth.

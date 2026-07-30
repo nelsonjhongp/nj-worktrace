@@ -1,7 +1,6 @@
 import { findWorkspaceAccessRow } from './access-repository';
-import type { WorkspaceRole } from './schema';
-
-export type WorkspaceStatus = 'ACTIVE' | 'ARCHIVED';
+import type { WorkspaceRole, WorkspaceStatus } from './schema';
+import type { WorkspaceId } from './types';
 
 /**
  * Resultado de resolver la membresía de un usuario en un workspace.
@@ -14,7 +13,7 @@ export type WorkspaceStatus = 'ACTIVE' | 'ARCHIVED';
 export type WorkspaceMembershipResolution =
   | {
       readonly outcome: 'ACTIVE_MEMBERSHIP';
-      readonly workspaceId: string;
+      readonly workspaceId: WorkspaceId;
       readonly role: WorkspaceRole;
       readonly workspaceStatus: WorkspaceStatus;
     }
@@ -40,6 +39,12 @@ const UUID_PATTERN =
  * Un `public_id` con forma inválida no puede existir en la tabla: se responde
  * `WORKSPACE_NOT_FOUND` sin consultar, para que un identificador malformado produzca el
  * mismo resultado que uno inexistente y no un error del servidor.
+ *
+ * **Ésta es la frontera de confianza del identificador interno.** El `as WorkspaceId` de más
+ * abajo es el único del árbol (`tests/module-boundary.test.ts` lo comprueba) y está aquí porque
+ * es el punto exacto en el que un `uuid` leído de PostgreSQL pasa a ser el identificador
+ * confiable que consumirán el contexto de acceso, el scope y los repositorios. Ningún valor de
+ * entrada externa alcanza este punto: lo que entra es `workspacePublicId` (D-36).
  */
 export async function resolveWorkspaceMembership(params: {
   readonly userId: string;
@@ -61,7 +66,7 @@ export async function resolveWorkspaceMembership(params: {
 
   return {
     outcome: 'ACTIVE_MEMBERSHIP',
-    workspaceId: row.workspaceId,
+    workspaceId: row.workspaceId as WorkspaceId,
     role: row.membershipRole,
     workspaceStatus: row.workspaceArchivedAt === null ? 'ACTIVE' : 'ARCHIVED',
   };

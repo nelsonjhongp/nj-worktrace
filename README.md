@@ -3,10 +3,11 @@
 Aplicación personal **multiespacio** para trazabilidad de trabajo y colaboración controlada con
 clientes.
 
-> **Estado: contexto de acceso a workspace (iteración 2C).** Esquema con `domain_users`,
+> **Estado: autorización por acción (iteración 2D, en curso).** Esquema con `domain_users`,
 > `workspaces` y `workspace_members`, migraciones versionadas, autenticación con Better Auth y
-> sesiones en PostgreSQL, y resolución server-side del contexto de acceso a un workspace. La
-> autorización por acción (iteración 2D) y la interfaz todavía no están implementadas.
+> sesiones en PostgreSQL, resolución server-side del contexto de acceso a un workspace (iteración 2C,
+> PR #4) y —nuevo en 2D— autorización por capacidad sobre ese contexto, con `WorkspaceScope` como
+> alcance obligatorio de la futura capa de datos. La interfaz todavía no está implementada.
 
 ## El problema
 

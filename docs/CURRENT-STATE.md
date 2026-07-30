@@ -1,6 +1,6 @@
 # CURRENT STATE
 
-**Última actualización: 2026-07-29 — iteración 2C, contexto de acceso a workspace**
+**Última actualización: 2026-07-29 — iteración 2D, autorización por acción y `WorkspaceScope`**
 
 Estado real del proyecto. Este documento se actualiza en **todo** cambio. Si dice algo que no es
 cierto, es un defecto.
@@ -9,15 +9,18 @@ cierto, es un defecto.
 
 ## 1. Estado en una línea
 
-**Iteraciones 2A y 2B fusionadas en `main`; iteración 2C en curso en `feat/workspace-access-context`.**
+**Iteraciones 2A, 2B y 2C fusionadas en `main`; iteración 2D en curso en
+`feat/workspace-authorization`.**
 Existe esquema ejecutable (`domain_users`, `workspaces`, `workspace_members` + las cuatro tablas de
 Better Auth) con migraciones `0000` y `0001`, autenticación funcional con Better Auth 1.6.25 y
-sesiones persistidas en PostgreSQL, y —nuevo en 2C— la **resolución server-side del contexto de
-acceso a un workspace**: sesión + identidad de dominio + `workspacePublicId` + membresía activa →
-`WorkspaceAccessContext`.
+sesiones persistidas en PostgreSQL, la resolución server-side del contexto de acceso a un workspace
+(2C: sesión + identidad de dominio + `workspacePublicId` + membresía activa →
+`WorkspaceAccessContext`) y —nuevo en 2D— la **autorización por acción**: catálogo cerrado de once
+capacidades, matriz rol → capacidad, motor puro de políticas, `WorkspaceScope` con identificador
+marcado y traducción de resultados a `Response` sin revelar recursos ajenos.
 
-**Todavía no existen** la autorización por acción (capacidades, `can(...)`, traducción a respuestas
-HTTP: iteración **2D**) ni ninguna interfaz de usuario.
+**Todavía no existe** ninguna interfaz de usuario. Tampoco existe ninguna **operación de negocio** que
+consuma una capacidad: 2D decide quién puede actuar, no qué hace la acción.
 
 ## 2. Qué existe
 
@@ -63,7 +66,8 @@ nj-worktrace/
 │       ├── ADR-005-persistence-and-migrations.md ← iteración 1
 │       ├── ADR-006-authentication-and-sessions.md ← iteración 1
 │       ├── ADR-007-runtime-and-deployment.md    ← iteración 1
-│       └── ADR-008-testing-strategy.md          ← iteración 1
+│       ├── ADR-008-testing-strategy.md          ← iteración 1
+│       └── ADR-009-workspace-authorization.md   ← iteración 2D (cierra OD-18)
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx        layout raíz
@@ -92,21 +96,30 @@ nj-worktrace/
 │   │       ├── server.ts     server-only: resolveWorkspaceMembership
 │   │       └── internal/
 │   │           ├── schema.ts             esquema de workspaces y members
+│   │           ├── types.ts              WorkspaceId nominal (dueño del identificador)
 │   │           ├── access-repository.ts  consulta única de acceso (LEFT JOIN)
-│   │           ├── access.ts             regla «solo ACTIVE concede»
+│   │           ├── access.ts             «solo ACTIVE concede» + frontera de WorkspaceId
 │   │           └── marker.ts             marcador de frontera para pruebas
 │   ├── application/
-│   │   └── access/
-│   │       ├── workspace-access-context.ts   contrato de 2C que consumirá 2D
-│   │       └── resolve-workspace-access.ts   composición de identity + workspaces
+│   │   ├── access/
+│   │   │   ├── workspace-access-context.ts   contrato de 2C que consume 2D
+│   │   │   ├── resolve-workspace-access.ts   composición de identity + workspaces
+│   │   │   └── workspace-scope.ts            alcance de datos; sin aserciones de tipo
+│   │   └── authorization/
+│   │       ├── workspace-capability.ts       catálogo cerrado de 11 capacidades
+│   │       ├── workspace-policy.ts           matriz rol → capacidad + motor puro
+│   │       ├── authorization-decision.ts     vocabulario de decisión
+│   │       └── authorize-workspace-action.ts orquestador: acceso + política + scope
 │   └── platform/
 │       ├── env.ts            validación de entorno con Zod
 │       ├── health.ts         contrato del health check
 │       ├── readiness.ts      contrato del readiness check
-│       └── database/
-│           ├── client.ts     Pool de pg + cliente Drizzle
-│           ├── health.ts     verificación de conexión
-│           └── schema.ts     composición de esquemas modulares
+│       ├── database/
+│       │   ├── client.ts     Pool de pg + cliente Drizzle
+│       │   ├── health.ts     verificación de conexión
+│       │   └── schema.ts     composición de esquemas modulares
+│       └── http/
+│           └── workspace-authorization-response.ts  Response estándar; 404 único
 ├── drizzle/
 │   ├── 0000_overjoyed_nocturne.sql  identidad y workspaces (tablas, enums, CHECK, triggers)
 │   └── 0001_melted_abomination.sql  tablas de Better Auth + provisión de domain_users
@@ -121,13 +134,24 @@ nj-worktrace/
 │   ├── health.test.ts        contrato del health check
 │   ├── readiness.test.ts     contrato del readiness check
 │   ├── env.test.ts           validación de entorno
-│   ├── module-boundary.test.ts  fronteras modulares (8 comprobaciones)
+│   ├── module-boundary.test.ts  fronteras modulares (16 comprobaciones)
+│   ├── unit/
+│   │   └── authorization/
+│   │       ├── workspace-capability.test.ts  catálogo cerrado
+│   │       ├── workspace-policy.test.ts      88 celdas rol × capacidad × estado
+│   │       └── workspace-scope.test.ts       forma del scope y marca de tipo
+│   ├── support/
+│   │   ├── identity.ts       identidades reales de Better Auth (compartido 2C/2D)
+│   │   ├── workspaces.ts     workspaces y membresías (compartido 2C/2D)
+│   │   └── workspace-access.ts  único punto de marcado de WorkspaceId en pruebas
 │   └── integration/
 │       ├── database.test.ts  prueba de integración con PostgreSQL real
 │       ├── schema.test.ts    pruebas de esquema de identidad y workspaces
 │       ├── auth.test.ts      registro, login, sesiones y atomicidad del signup
-│       └── access/
-│           └── resolve-workspace-access.test.ts  resolución del contexto de acceso
+│       ├── access/
+│       │   └── resolve-workspace-access.test.ts  resolución del contexto de acceso
+│       └── authorization/
+│           └── authorize-workspace-action.test.ts  autorización y traducción HTTP
 └── .claude/skills/
     ├── plan-iteration/SKILL.md
     ├── verify-change/SKILL.md
@@ -136,26 +160,34 @@ nj-worktrace/
 
 ## 3. Qué NO existe
 
-Sin **autorización por acción** (capacidades, `can(...)`, `requireCapability(...)`, políticas por
-rol, traducción a `403`/`404`: iteración 2D) · sin interfaz de usuario funcional (solo página
-temporal técnica) · sin listado ni selección de workspace · sin invitaciones ni gestión de miembros ·
-sin `DEMO_MODE` implementado · sin Row-Level Security (`OD-18`, abierta) · sin despliegue remoto ·
-sin integración con GitHub · sin captura de agentes o tokens · sin pagos.
+Sin interfaz de usuario funcional (solo página temporal técnica) · sin ninguna **ruta HTTP** que
+consuma la autorización · sin **operaciones de negocio** (proyectos, ciclos, work items, sesiones,
+evidencias, actualizaciones, reuniones, solicitudes, reviews) · sin repositorios de negocio · sin
+listado ni selección de workspace · sin invitaciones ni gestión de miembros · sin creación ni
+restauración de workspaces (`OD-19`) · sin auditoría real · sin `DEMO_MODE` implementado · sin
+Row-Level Security (`OD-18` **cerrada en negativo**, `ADR-009` §8) · sin despliegue remoto · sin
+integración con GitHub · sin captura de agentes o tokens · sin pagos.
 
 **Lo que sí existe y funciona**: la imagen Docker se construye y ejecuta; las tablas `domain_users`,
 `workspaces` y `workspace_members` existen con sus restricciones, índices parciales y triggers; las
 cuatro tablas de Better Auth existen y `domain_users` se provisiona atómicamente por trigger al crear
-un usuario; registro, login, logout y sesiones persistentes funcionan; y la resolución del contexto
-de acceso a un workspace devuelve un contexto mínimo confiable. Nada de eso decide todavía **qué
-puede hacer** un rol: eso es 2D.
+un usuario; registro, login, logout y sesiones persistentes funcionan; la resolución del contexto
+de acceso a un workspace devuelve un contexto mínimo confiable; y —nuevo en 2D— ese contexto se traduce
+en una decisión de autorización por capacidad, con `WorkspaceScope` para la futura capa de datos y una
+respuesta HTTP que no distingue «no existe» de «no es tuyo» de «no puedes».
+
+**El límite exacto de 2D**: decide **quién puede** ejecutar cada acción. No existe ninguna acción que
+ejecutar, y por tanto el filtrado por `workspace_id` de las consultas de negocio —`ADR-002` A2— sigue
+**sin una sola verificación**.
 
 ## 4. Estado de Git
 
-- Rama actual: **`feat/workspace-access-context`** (iteración 2C).
+- Rama actual: **`feat/workspace-authorization`** (iteración 2D).
 - Rama principal: `main`.
-- Historial: **8 commits**. Las iteraciones 2A (`477a79f`, PR #2) y 2B (`1663932`, PR #3) están
-  fusionadas en `main`; la verificación de contenedor y CI es `68f01de` (PR #1).
-- Cambios de la iteración 2C: **sin confirmar**, en el árbol de trabajo.
+- Historial: **9 commits**. Las iteraciones 2A (`477a79f`, PR #2), 2B (`1663932`, PR #3) y 2C
+  (`cce28b3`, PR #4) están fusionadas en `main`; la verificación de contenedor y CI es `68f01de`
+  (PR #1).
+- Cambios de la iteración 2D: **sin confirmar**, en el árbol de trabajo.
 - No se ha hecho `commit` ni `push` — restricción de `AGENTS.md` §5.3.
 
 ### 4.1 Integración continua y análisis estático
@@ -185,6 +217,7 @@ puede hacer** un rol: eso es 2D.
 | **ADR-006** | Better Auth `1.6.x` solo para **autenticación**, sesiones en PostgreSQL, cookies opacas `HttpOnly`/`Secure`/`SameSite=Lax`, sin `cookieCache`, sin JWT, sin sus plugins de organización. | Iteración 1 |
 | **ADR-007** | Node.js 24 LTS, Next.js `output: 'standalone'` en imagen Docker propia, PostgreSQL local por Compose, `pnpm dev` nativo, migrar como paso separado, Caddy y PostgreSQL administrado como futuro opcional. | Iteración 1 |
 | **ADR-008** | Vitest `4.1.x` (estable; 5 sigue en beta) + PostgreSQL real en base desechable, Playwright contra la imagen construida, pruebas de aislamiento obligatorias, **prohibidos los dobles de base en autorización**, sin umbral de cobertura. | Iteración 1, corregida (sesión de corrección) |
+| **ADR-009** | Catálogo cerrado de once capacidades, matriz rol → capacidad como dato exhaustivo, motor puro y síncrono, `WorkspaceScope` de tres campos con `WorkspaceId` marcado, traducción HTTP con 404 único e indistinguible. **Sin Row-Level Security** (`OD-18` cerrada) y sin librería externa de autorización. | Iteración 2D |
 
 ### De producto
 
@@ -226,6 +259,12 @@ puede hacer** un rol: eso es 2D.
 | **D-34** | Un workspace **archivado** con membresía activa **concede** resolución de acceso, marcada `workspaceStatus: ARCHIVED`. No es un 404. La restricción a solo lectura la impone la autorización por acción (2D) | `USER-FLOWS.md` F1 A3 y F14, `ADR-002` §2 | **2C** |
 | **D-35** | El contexto de acceso tiene exactamente cuatro campos: `userId`, `workspaceId`, `role`, `workspaceStatus`. Sin identificador de membresía, sin marcas de tiempo, sin correo, nombre, token ni sesión, sin el workspace completo. Inmutable y serializable | `src/application/access/workspace-access-context.ts` | **2C** |
 | **D-36** | La entrada externa es siempre `workspaces.public_id`; el `workspaces.id` interno solo puede proceder de PostgreSQL y nunca entra desde fuera | `ADR-002` §9 (A7), 2C | **2C** |
+| **D-37** | Catálogo **cerrado** de once capacidades, con una capacidad por fila distinta de `ROLES-AND-PERMISSIONS.md` §8. `workspace.create` no es una capacidad de workspace; `visibility` y `publication_state` son filtros, no capacidades; la propiedad del registro es un filtro de fila | `ROLES-AND-PERMISSIONS.md` §12, `ADR-009` §1 | **2D** |
+| **D-38** | La matriz rol → capacidad es un `Record` exhaustivo, no condicionales. `review.submit` y `request.create` están **denegadas para OWNER** y permitidas para CLIENT: no existe atajo por OWNER | ídem §12.2, `ADR-009` §2 | **2D** |
+| **D-39** | Workspace archivado: `READ` permitida, `MUTATION` denegada, como **regla general** en un solo lugar. El rol se evalúa **antes** del archivado, para no revelar qué podría hacer otro rol | ídem §12.3, `ADR-009` §3 | **2D** |
+| **D-40** | `WorkspaceScope` tiene exactamente `workspaceId` (nominal), `userId` y `role`. Sin `workspaceStatus`, sin capacidades, sin transacción. El **dueño del tipo nominal es el módulo `workspaces`** y su único punto de marcado es la frontera de persistencia del módulo, no la capa de aplicación: ni una cadena ordinaria ni un `WorkspaceAccessContext` fabricado a mano compilan. Es una comprobación de compilación, no un control de ejecución, y no sustituye al filtro `workspace_id` de las consultas | `ADR-005` §3.6.1, `ADR-009` §7 | **2D** |
+| **D-41** | Traducción externa: `401` sin sesión o identidad archivada · `500` para `IDENTITY_NOT_PROVISIONED`, que es invariante roto y no denegación · `404` **idéntico** para workspace inexistente, ajeno y falta de capacidad · `409 {"code":"WORKSPACE_ARCHIVED"}` para el archivado. `Response` estándar, nunca `NextResponse` | `ADR-009` §6, `ADR-002` §3 (A9, A10) | **2D** |
+| **D-42** | **Sin Row-Level Security en el MVP actual** (`OD-18` cerrada). El aislamiento primario es contexto + capacidades + scope + queries filtradas + pruebas contra PostgreSQL real. Reevaluación obligatoria antes de exponer usuarios externos reales | `ADR-009` §8 | **2D** |
 
 ## 6. Decisiones abiertas
 
@@ -245,7 +284,7 @@ puede hacer** un rol: eso es 2D.
 | **OD-15** | Uso de herramientas y agentes: qué se registra, manual o estimado, y cómo se relaciona con las sesiones. | Post-MVP | Bajo. `DATA-MODEL.md` §9 deja la puerta abierta. |
 | **OD-16** | ¿Exportación de informes (PDF/CSV)? ¿Qué contiene un informe de cierre exportado? | Post-MVP | Bajo. **Nueva en 0.1**: antes se referenciaba erróneamente como `OD-09`. |
 | **OD-17** | Con varios `CLIENT` en un workspace, ¿ve cada uno las solicitudes y revisiones de los demás? | Iteración 5 | Medio. **Nueva en 0.1**, surgida al cerrar `OD-02`. **Valor por defecto del MVP: cada cliente ve solo lo suyo** — el conservador. Si representan a una misma organización, probablemente convenga compartirlas. |
-| **OD-18** | ¿Se añade **Row-Level Security** de PostgreSQL como refuerzo del aislamiento, además del `WorkspaceScope` de la capa de datos? | Iteración 2 | Medio. **Nueva en la iteración 1** (`ADR-005` §3.6). RLS con un usuario de aplicación único exige propagar el actor por variable de sesión; hacerlo a medias da falsa seguridad. Decidible dentro de la iteración 2, con medidas reales delante. |
+| **OD-19** | ¿Quién puede **restaurar un workspace archivado** y mediante qué operación? Hoy nada lo define: la matriz de acciones de `ROLES-AND-PERMISSIONS.md` §8 no tiene fila, `DATA-MODEL.md` §4.17 no lista el evento de auditoría y `USER-FLOWS.md` menciona el estado archivado solo como consecuencia (F1 A3, F7). El campo `workspaces.archived_at` existe y D-34 depende de él, pero nadie ha decidido quién lo escribe | Administración del workspace | Medio. **Nueva en 2D.** Cuando se decida, restaurar será *una mutación que debe permitirse estando archivado*: la primera excepción a D-39, y por eso conviene decidirla antes de que existan más capacidades de mutación. **2D no añade ninguna capacidad de restauración.** |
 
 ### Decisiones técnicas cerradas en la iteración 1
 
@@ -269,6 +308,15 @@ civiles, zona IANA obligatoria en el workspace (`ADR-005` §3.4).
 | `OD-07` | UTC + zona IANA obligatoria por workspace (`America/Lima` en el ejemplo), preferencia opcional por usuario, límites de día y ciclo en la zona del workspace, sin abreviaturas. → D-25 |
 | `OD-08` | `work_cycle_items`: un work item participa en varios ciclos sin duplicarse, conservando planificación, procedencia y estado al inicio y al cierre. → D-32 |
 | `OD-11` | El rol nunca es global; se define por membresía. → D-31 |
+
+### Cerradas en la iteración 2D
+
+| # | Cierre |
+|---|---|
+| `OD-18` | **No se adopta Row-Level Security** en el MVP actual. El pool comparte un usuario de aplicación y ninguna transacción propaga el actor por `SET LOCAL`; RLS parcial daría una falsa seguridad peor que no tenerla. El aislamiento primario es `WorkspaceAccessContext` + capacidades cerradas + `WorkspaceScope` + queries filtradas en el `WHERE` + pruebas contra PostgreSQL real + fronteras estructurales. Diferirla es reversible: el scope ya transporta `workspaceId` y `userId`, los dos valores que RLS necesitaría fijar como variables de sesión, así que adoptarla sería añadir `SET LOCAL` y las políticas SQL sin rehacer el acceso a datos. **Revisión obligatoria** cuando se invite al primer usuario externo real o aparezca un consumidor del `Pool` fuera de la capa de autorización. Ver [`ADR-009`](decisions/ADR-009-workspace-authorization.md) §8. → D-42 |
+| `K-24` | La cabecera del workspace la lee **cualquier miembro activo**; la lista de miembros y la auditoría son **solo del `OWNER`**. Resuelve la contradicción entre `ROLES-AND-PERMISSIONS.md` §4.1 («solo OWNER» para la clase de sistema), §5 (que daba `R` a MEMBER y VIEWER sobre `workspace_members`) y §7.1 («`workspace_members` no legible»). → `workspace.read` para los cuatro roles; `membership.read` y `audit.read` solo OWNER |
+| `K-25` | **Crear una solicitud es exclusivo del `CLIENT`.** §8 decía «OWNER ✔ · MEMBER ✔ · CLIENT ✔», contra la matriz de §5 y contra la afirmación de que las cuatro celdas en negrita son *toda* la escritura del cliente. Se resuelve a favor de §5 y `ADR-003`: la cola es un canal del cliente y el propietario entra por el triaje. → `request.create` separado de `collaboration.participate` |
+| `K-26` | **Crear un workspace no es una acción acotada a workspace.** La fila de §8 calificaba por rol, imposible cuando el rol se define por membresía (`OD-11`): en ese momento el actor no tiene rol. La fila se conserva por su evento de auditoría con las cuatro columnas a `—`. → sin capacidad `workspace.create` |
 
 ## 7. Contradicciones
 
@@ -303,14 +351,26 @@ civiles, zona IANA obligatoria en el workspace (`ADR-005` §3.4).
 | **K-22** | `ADR-001` afirmaba «escalado únicamente vertical», confundiendo la prioridad del MVP con un límite arquitectónico | Aclarado: vertical primero, horizontal posible sin rediseño, con la disciplina de no guardar estado con autoridad en el proceso |
 | **K-23** | Nada definía cómo accede el cliente al proyecto que contiene contenido publicado | Acceso derivado a nivel de etiqueta, sin listado ni ruta. → D-23 |
 
+### 7.3 Corregidas en la iteración 2D
+
+| # | Contradicción | Corrección |
+|---|---|---|
+| **K-24** | `ROLES-AND-PERMISSIONS.md` §4.1 clasificaba `workspaces` y `workspace_members` como entidades de sistema accesibles «solo `OWNER`», mientras la matriz de §5 daba `R` a `MEMBER` y `VIEWER` en ambas filas, y §7.1 afirmaba que `workspace_members` «no es legible». Tres pasajes, dos respuestas | Se separan dos cosas que la clase «de sistema» mezclaba: la **cabecera del workspace** la lee cualquier miembro activo —sin ella no se puede pintar el contexto en el que ya se está—, y la **lista de miembros y la auditoría** son del `OWNER`. §4.1 y §5 corregidos. → `workspace.read`, `membership.read`, `audit.read` |
+| **K-25** | §8 daba «Crear solicitud» a `OWNER`, `MEMBER` y `CLIENT`; §5 no daba `C` sobre `client_requests` a ninguno de los dos primeros, y remataba que las cuatro celdas en negrita eran *toda* la escritura del cliente | Resuelta a favor de §5 y [`ADR-003`](decisions/ADR-003-client-interaction.md): la cola de solicitudes es un canal del cliente y el propietario entra por el triaje, no creando peticiones a sí mismo. Fila de §8 corregida a `✖ ✖ ✔ ✖`. → `request.create` solo `CLIENT` |
+| **K-26** | §8 calificaba «Crear workspace» por rol (`OWNER ✔ · MEMBER ✔`), imposible cuando el rol se define por membresía (`OD-11`, D-31): en ese instante el actor no tiene rol en ningún workspace | Marcada como acción **no acotada a workspace**, con las cuatro columnas a `—` y su evento de auditoría intacto. F1 ya lo decía bien: «cualquier usuario autenticado». → ninguna capacidad `workspace.create` |
+
 **Ninguna contradicción queda pendiente de confirmación.**
 
 ## 8. Riesgos vigentes
 
 | # | Riesgo | Gravedad | Estado |
 |---|---|---|---|
-| R-01 | Fuga de datos entre workspaces | **Crítica** | Mitigada en diseño (ADR-002 A1–A8) y en estrategia: `WorkspaceScope` obligatorio (ADR-005 §3.6) y pruebas contra PostgreSQL real sin dobles (ADR-008 §3.5). **Parcialmente verificada en 2C**: la resolución de acceso exige membresía `ACTIVE`, la entrada externa es opaca y las pruebas cubren A3 y A6 para la resolución. El filtrado por `workspace_id` de cada consulta de negocio sigue sin verificar: no hay entidades de negocio. |
-| **R-14** | `domain_users.id` está vinculado a `"user".id` solo por el trigger `provision_domain_user`, sin clave foránea. Borrar un usuario en Better Auth dejaría identidad y membresías huérfanas | Media | **Nuevo en 2C.** Detectado, no explotable hoy: no existe borrado de cuentas. 2C lo detecta en tiempo de resolución (`IDENTITY_NOT_PROVISIONED`). Reforzar el esquema exigiría migración y queda fuera del alcance de 2C. |
+| R-01 | Fuga de datos entre workspaces | **Crítica** | Mitigada en diseño (ADR-002 A1–A10) y en estrategia: `WorkspaceScope` obligatorio (ADR-005 §3.6) y pruebas contra PostgreSQL real sin dobles (ADR-008 §3.5). **Más verificada en 2D**: la resolución exige membresía `ACTIVE`, la entrada externa es opaca, una cadena ordinaria ni un contexto construido con `workspaceId: string` compilan como identificador interno; el único marcado productivo permitido está en la frontera de persistencia del módulo `workspaces` y las respuestas de workspace inexistente, ajeno y sin capacidad son idénticas (A9, A10 verificadas). **Sigue crítica**: el filtrado por `workspace_id` de cada consulta de negocio (A2) no tiene ni una verificación, porque no existe ninguna entidad de negocio. Cerrar `OD-18` sin RLS no rebaja este riesgo — elige el mecanismo, no lo comprueba. |
+| **R-14** | `domain_users.id` está vinculado a `"user".id` solo por el trigger `provision_domain_user`, sin clave foránea. Borrar un usuario en Better Auth dejaría identidad y membresías huérfanas | Media | **Nuevo en 2C.** Detectado, no explotable hoy: no existe borrado de cuentas. 2C lo detecta en tiempo de resolución (`IDENTITY_NOT_PROVISIONED`) y **2D lo traduce a `500`, no a una denegación**: un invariante roto no debe esconderse entre los 404 normales. Reforzar el esquema exigiría migración y sigue fuera de alcance. |
+| **R-15** | Seis de las once capacidades no tienen todavía ninguna operación que las consuma. Su granularidad se decidió con la documentación delante, pero sin código que la contraste; una división equivocada obligaría a renombrar literales | Media | **Nuevo en 2D.** La agrupación no es inventada: sale de filas idénticas de `ROLES-AND-PERMISSIONS.md` §8. Regla de contención: **añadir** una capacidad es libre; **renombrarla o partirla** exige actualizar §12 en el mismo cambio. El coste está acotado porque los literales viven en un solo archivo, y una prueba de frontera lo garantiza (`ADR-009` T9-R12). |
+| **R-16** | Sin RLS, un filtro `workspace_id` olvidado **no falla: devuelve datos**. Es el modo de fallo silencioso de `R-01` | **Crítica** | **Nuevo en 2D**, explícito al cerrar `OD-18`. Toda la mitigación son las pruebas de aislamiento por entidad de [`TESTING.md`](TESTING.md) §6, bloqueantes (T8-R6), más el `WorkspaceScope` no fabricable. Hoy **no hay ninguna entidad** que probar: el riesgo está aceptado y pendiente de verificación desde la iteración 3. |
+| **R-17** | El esquema Drizzle de `workspace_members` y `workspaces` **no declara** las claves foráneas hacia `domain_users` que la migración `0000` sí creó (`workspace_members.user_id`, `workspace_members.invited_by`, `workspaces.created_by`). La base tiene tres restricciones que el código no conoce | Media | **Nuevo en 2D**, detectado al escribir las pruebas: borrar un `domain_users` con membresías falla por `ON DELETE RESTRICT`, algo que el esquema TypeScript no anticipa. `pnpm db:generate` no lo detecta porque compara el esquema con su propia instantánea, y a ambos les faltan las tres. **No corregido en 2D**: reconciliarlo exige tocar esquema o migración, ambas cosas fuera de alcance. Es defecto de sincronía, no de comportamiento: la base es la estricta. |
+| **R-18** | Cada autorización cuesta dos viajes a PostgreSQL (validación de sesión + fila de acceso) y no se puede cachear | Baja | **Nuevo en 2D.** Aceptado a propósito: un rol cacheado es un permiso que sobrevive a su revocación (`ADR-002` §5, `ADR-006` T6-R1). Con un usuario es irrelevante. Vigilar si una petición llega a autorizar varias veces. |
 | R-02 | Publicar contenido interno por descuido | Alta | Mitigada en diseño (D-05, D-06, R10 ampliada a evidencias). Sin verificar. |
 | **R-11** | **Drizzle sigue por debajo de 1.0** y su 1.0 es una reescritura del motor de migraciones | Media | **Nuevo en la iteración 1.** Versión exacta `0.45.x`, sin beta. Mitigación de fondo: las migraciones son SQL plano y el esquema es PostgreSQL estándar — sustituir la capa de acceso no movería datos (ADR-005 §3.2.1). |
 | **R-12** | **Concentración de proveedor**: Next.js es de Vercel y Better Auth se ha incorporado a Vercel | Media | **Nuevo en la iteración 1.** Ambos de código abierto y autohospedados. Mitigación: sin funciones de plataforma (T4-R7), Better Auth solo para autenticación y tras el módulo `identity` (T6-R3/R4), datos y membresías propios. Criterio de comprobación: la aplicación debe funcionar entera sin servicios de terceros (ADR-007 §4). |
@@ -335,7 +395,8 @@ Listadas en [`TECHNICAL-FOUNDATION.md`](TECHNICAL-FOUNDATION.md) §5: `moduleRes
 en la imagen `standalone` · rendimiento de las bases por plantilla · comportamiento de los índices
 parciales únicos.
 
-**Estado de verificaciones tras 2C:**
+**Estado de verificaciones tras 2D** (sin cambios respecto a 2C: la autorización no toca ninguna de
+las seis):
 
 - **T-1 (Zod + moduleResolution):** ✅ Verificada en 1.5C. Zod 4.4.3 funciona con `moduleResolution: "bundler"` de Next.js.
 - **T-2 (`SameSite` por defecto de Better Auth):** ✅ Resuelta por configuración explícita en `internal/auth.ts` (`sameSite: 'lax'`, `useSecureCookies` en producción). La inspección de la cabecera `Set-Cookie` (T6-3) sigue siendo prueba E2E pendiente.
@@ -346,27 +407,32 @@ parciales únicos.
 
 ## 9. Próximo paso recomendado
 
-**Iteración 2D — autorización y aislamiento cruzado.** Consume el `WorkspaceAccessContext` de 2C y
-debe:
+La iteración 2 está **terminada en cuanto a mecanismo**: `A1`, `A3`, `A4`, `A6`, `A7`, `A9` y `A10`
+verificadas; `A2`, `A5` y `A8` sin verificar por falta de sujeto (no hay entidades de contenido ni alta
+de workspace).
 
-1. Definir capacidades por acción y `can(...)` / `requireCapability(...)` sobre el contexto.
-2. Traducir los resultados de 2C a respuestas HTTP, con **404 deliberado** para accesos cruzados
-   (D-17, `ADR-002` §3) e indistinguibilidad entre «no existe» y «no es tuyo».
-3. Imponer el modo de solo lectura del workspace archivado (D-34).
-4. Imponer `WorkspaceScope` como primer parámetro obligatorio de todo repositorio (`ADR-005` §3.6).
-5. Probar OWNER/MEMBER/CLIENT/VIEWER por operación, y la prevención de enumeración.
+**Iteración 3 — registro de trabajo.** Es la primera que puede cerrar `A2`, y por eso es el paso
+siguiente natural. Al crear la primera entidad de negocio hay que hacer, en el mismo cambio:
 
-**Cerrar `OD-18` (Row-Level Security) antes de abrir 2D**: es la única decisión abierta que bloquea
-la iteración 2, y adoptarla después de escribir la capa de autorización obligaría a rehacer el
-acceso a datos.
+1. El primer repositorio con `WorkspaceScope` como primer parámetro (`ADR-005` §3.6.2, T5-R5).
+2. La comprobación estructural de firmas de repositorio, que hoy no tendría nada que comprobar
+   (`ADR-009`, condiciones de revisión).
+3. Las pruebas de aislamiento por entidad de [`TESTING.md`](TESTING.md) §6, que son las que rebajarían
+   `R-01` y `R-16`.
+4. La primera operación que consuma `work.record`, y con ella la primera composición real de
+   `WorkspaceScope` + transacción (T5-R14).
 
-**No empezar por la interfaz.** La iteración 2 sigue siendo la única cuyo fallo no se puede corregir
-a posteriori sin rehacer lo construido encima.
+**Antes de la iteración 3 conviene cerrar `OD-19`** (restauración de un workspace archivado): será la
+primera excepción a D-39, y decidirla cuando existan más capacidades de mutación es más caro.
+
+**No empezar por la interfaz.** El aislamiento sigue siendo lo único cuyo fallo no se puede corregir a
+posteriori sin rehacer lo construido encima, y su verificación depende de que existan datos que filtrar.
 
 ## 10. Registro de cambios
 
 | Fecha | Cambio |
 |---|---|
+| 2026-07-29 | **Iteración 2D** — autorización por acción y `WorkspaceScope`. Catálogo cerrado de once capacidades derivado de filas idénticas de `ROLES-AND-PERMISSIONS.md` §8 (D-37), matriz rol → capacidad como `Record` exhaustivo con `review.submit` y `request.create` denegadas para OWNER (D-38), motor puro y síncrono (`decideWorkspaceAction`, `canWorkspace`) sin base, sin Better Auth, sin Next.js y sin librería externa. Workspace archivado en solo lectura como regla general, con el rol evaluado antes del archivado para no revelar qué podría hacer otro rol (D-39). `WorkspaceScope` de tres campos con `WorkspaceId` nominal, cuyo **único punto de marcado** es la frontera de persistencia del módulo `workspaces` (`internal/access.ts`, inmediatamente después del repositorio): desde ahí el identificador viaja marcado por la resolución de membresía, el contexto de acceso y el scope, sin ninguna aserción de tipo en la capa de aplicación. Ni una cadena ordinaria ni un `WorkspaceAccessContext` fabricado a mano compilan (D-40). Corregida la forma conceptual de `ADR-005` §3.6: `userId` en vez de `actor`, `role` incluido, transacción fuera. Traducción HTTP con `Response` estándar: `401` sin sesión o identidad archivada, `500` para el invariante roto de `R-14`, un `404` **único e idéntico** para workspace inexistente, ajeno y falta de capacidad, y `409 {"code":"WORKSPACE_ARCHIVED"}` para el archivado (D-41). `OD-18` **cerrada sin adoptar RLS** (D-42, `ADR-009` §8), con revisión obligatoria antes de exponer usuarios externos reales y sin rebajar `R-01`. Nueva `OD-19` (restauración de workspace archivado). Resueltas `K-24`, `K-25` y `K-26`. `ADR-002` gana `A9` y `A10`; `ADR-005`, `T5-R13` y `T5-R14`; `ADR-004` registra `platform/http/`. Fronteras: seis reglas nuevas de ESLint —cada frontera de ruta declarada en su forma con alias y en la forma que atrapa el especificador relativo equivalente— y siete comprobaciones nuevas en `tests/module-boundary.test.ts` (16 en total), que resuelven la ruta del import antes de comparar capas, de modo que escribir `../..` en vez de `@/` no evade ninguna. Incluyen «los literales de capacidad viven en dos archivos, y se afirma el conjunto observado» y «la marca de `WorkspaceId` se aplica en un único punto de `src/`». Deduplicado `WorkspaceStatus`, ahora propiedad del módulo `workspaces`. Helpers de identidad y workspaces extraídos a `tests/support/` sin cambio semántico. Pruebas: 19 → **144 unitarias** y 57 → **87 de integración**. Detectado `R-17` (el esquema Drizzle no declara tres claves foráneas que la migración `0000` sí creó), no corregido por estar fuera de alcance. Sin migraciones, sin cambios de esquema, sin dependencias nuevas, sin rutas, sin interfaz. |
 | 2026-07-29 | **Iteración 2C** — contexto de acceso a workspace. Resolución server-side que compone cabeceras + sesión Better Auth + `domain_users` + `workspacePublicId` + membresía activa en un `WorkspaceAccessContext` de cuatro campos (D-35). Unión discriminada de resultados con precedencia actor → recurso: `UNAUTHENTICATED` → `IDENTITY_NOT_PROVISIONED` → `IDENTITY_ARCHIVED` → `WORKSPACE_NOT_FOUND` → `NO_ACTIVE_MEMBERSHIP` → `GRANTED`. Solo `status = ACTIVE` concede; `INVITED`, `SUSPENDED`, `REMOVED` y la ausencia de fila colapsan en `NO_ACTIVE_MEMBERSHIP` sin revelar el estado concreto. Workspace archivado con membresía activa concede (D-34). Entrada externa siempre `public_id` (D-36). Cerrada la superficie de Better Auth: `identity/index.ts` ya no exporta sus tablas, que pasan a `identity/database-schema.ts` con `platform/database/schema.ts` como único consumidor de producción; el handler de rutas se encapsula en `identity/server.ts` como `authHandler`. Ocho fronteras estructurales verificables en ESLint y en `tests/module-boundary.test.ts`. 19 pruebas de integración nuevas contra PostgreSQL real con identidades creadas por Better Auth. Sin migraciones, sin cambios de esquema, sin dependencias nuevas, sin autorización por acción, sin interfaz. Documentación obsoleta de `AGENTS.md` y de este documento sincronizada. |
 | 2026-07-28 | **Iteración 2B** — autenticación y sesiones (PR #3, `1663932`, fusionada en `main`). Better Auth 1.6.25 con `@better-auth/drizzle-adapter`, sesiones persistidas en PostgreSQL, sin `cookieCache`, sin JWT, sin plugins de organización. Migración `0001_melted_abomination.sql` con las tablas `user`, `session`, `account`, `verification` y el trigger `provision_domain_user`, que provisiona `domain_users` de forma atómica al crear un usuario. Ruta `/api/auth/[...all]`. Cookies `httpOnly`, `secure` en producción y `SameSite=Lax` explícito. Pruebas de integración de registro, login, logout, sesión nula sin cookie, sesión no recuperable tras logout y rollback completo del signup ante fallo en `account` o en `session`. |
 | 2026-07-28 | **Iteración 2A** — esquema de identidad y workspaces (PR #2, `477a79f`, fusionada en `main`). Tablas `domain_users`, `workspaces`, `workspace_members` con enums cerrados (`workspace_type`, `member_role`, `member_status`, `visibility`). Restricciones CHECK para validación de datos (display_name no vacío, timezone no vacío, cycle_length_days > 0, cycle_start_weekday 1-7, combinaciones válidas de status/fechas). Índices parciales para membresías activas. Trigger diferido para invariante de OWNER activo. Migración versionada `0000_overjoyed_nocturne.sql`. Scripts `db:generate`, `db:migrate`, `db:test:reset`, `db:reset`. Base de pruebas desechable `nj_worktrace_test`. Pruebas de integración para esquema, restricciones e invariante de OWNER. CI actualizado para preparar bases y aplicar migraciones. |

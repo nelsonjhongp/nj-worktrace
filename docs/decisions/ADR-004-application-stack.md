@@ -84,9 +84,19 @@ src/
 │   ├── collaboration/
 │   └── audit/
 ├── application/              # servicios de aplicación (orquestadores, ADR-001 §b)
+│   ├── access/               # resolución de acceso y WorkspaceScope
+│   └── authorization/        # capacidades, matriz, motor puro (ADR-009)
 ├── platform/                 # acceso a datos, transacciones, configuración
+│   ├── database/
+│   └── http/                 # traducción de resultados a Response (ADR-009 §6)
 └── ui/                       # componentes shadcn/ui y compartidos
 ```
+
+`platform/http/` se añadió en la iteración 2D. `platform/` era «acceso a datos, transacciones,
+configuración»; ahora incluye también la traducción a HTTP, que es infraestructura sin dominio y por
+eso no cabe en `application/`. La dependencia va en **un solo sentido**: `platform/http` conoce el
+vocabulario de resultados de la aplicación; la capa de aplicación no conoce HTTP, y una regla de
+linting lo impide. Usa `Response` estándar, nunca `NextResponse`.
 
 **Regla que se hace cumplir con linting:** solo se importa `modules/<x>` (que resuelve a su
 `index.ts`). Importar `modules/<x>/internal/...` desde fuera del módulo es un error de compilación

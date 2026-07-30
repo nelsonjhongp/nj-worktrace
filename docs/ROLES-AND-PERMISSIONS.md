@@ -5,6 +5,10 @@ Modelo de autorización de `nj-worktrace`.
 > Revisado en la **iteración 0.1**: clasificación de entidades publicables, acceso derivado a
 > proyectos, varios clientes por workspace, revisiones sin filas pendientes y restablecimiento
 > administrativo de contraseña.
+>
+> Revisado en la **iteración 2D**: §12 nueva con el catálogo cerrado de capacidades y la matriz
+> rol → capacidad, que es la traducción ejecutable de §5 y §8. Resueltas tres contradicciones entre
+> §4.1, §5 y §8 (`K-24`, `K-25`, `K-26`).
 
 ---
 
@@ -132,8 +136,18 @@ puede_ver(usuario, registro):
       MEMBER, VIEWER  -> SÍ (lectura)
 
     DE_SISTEMA:
-      -> solo OWNER, salvo el perfil propio
+      cabecera del workspace (nombre, zona)  -> cualquier miembro activo
+      lista de miembros, auditoría           -> solo OWNER
+      perfil propio                          -> su dueño
 ```
+
+**Precisión de la iteración 2D (`K-24`).** La regla anterior decía «solo `OWNER`, salvo el perfil
+propio», y eso chocaba con la matriz de §5, que da `R` sobre `workspaces` a `MEMBER`, `CLIENT` y
+`VIEWER`. Las dos cosas eran ciertas de entidades distintas: **la cabecera del workspace la lee
+cualquier miembro activo** —sin ella no se puede ni pintar el contexto en el que ya se está—, mientras
+que **la lista de miembros y la auditoría son solo del `OWNER`**, como sostiene §7.1 («Ver quién más es
+miembro → `workspace_members` no legible»). Traducido a capacidades (§12): `workspace.read` para los
+cuatro roles, `membership.read` y `audit.read` solo para `OWNER`.
 
 Ver el detalle de evidencias multi-contexto en [`DATA-MODEL.md`](DATA-MODEL.md) §4.12.1: la regla es
 **conjuntiva** — contexto accesible **y** evidencia `CLIENT_VISIBLE` + `PUBLISHED`.
@@ -146,7 +160,7 @@ Leyenda: **C** crear · **R** leer · **U** actualizar · **D** borrar · **—*
 | Entidad | Clase | OWNER | MEMBER | CLIENT | VIEWER |
 |---|---|---|---|---|---|
 | `workspaces` | sistema | R U D | R | R *(nombre y zona; solo el suyo)* | R |
-| `workspace_members` | sistema | C R U D | R | — | R |
+| `workspace_members` | sistema | C R U D | — | — | — |
 | `projects` | estructural | C R U D | C R U *(p)* | — *(etiqueta derivada, §6.2)* | R |
 | `work_cycles` | **publicable** | C R U D | R | R *(f)* | R |
 | `work_cycle_items` | derivada | C R U D | C R U | R *(d)* | R |
@@ -169,6 +183,10 @@ Leyenda: **C** crear · **R** leer · **U** actualizar · **D** borrar · **—*
 
 Las cuatro celdas en negrita son **toda** la capacidad de escritura del cliente:
 mensajes, solicitudes, revisiones y propuestas de punto de agenda.
+
+**Corrección de la iteración 2D (`K-24`):** `workspace_members` pasa a `—` para `MEMBER`, `CLIENT` y
+`VIEWER`. Antes decía `R` para `MEMBER` y `VIEWER`, contradiciendo a la vez §4.1 y §7.1. La lista de
+miembros es del `OWNER`.
 
 **Nota sobre `reviews`:** el cliente tiene `C` y `R`, **no `U`**. Cambiar de respuesta crea una fila
 nueva encadenada por `supersedes_review_id` (`DATA-MODEL.md` §4.16.1, regla R14).
@@ -261,7 +279,7 @@ recibida, y queda constancia en `work_cycles.closed_without_review`.
 
 | Acción | OWNER | MEMBER | CLIENT | VIEWER | Evento de auditoría |
 |---|---|---|---|---|---|
-| Crear workspace | ✔ *(se vuelve OWNER)* | ✔ | ✖ | ✖ | `workspace.created` |
+| Crear workspace *(§8.1: no acotada a workspace)* | — | — | — | — | `workspace.created` |
 | Invitar / quitar miembro | ✔ | ✖ | ✖ | ✖ | `member.added` / `member.removed` |
 | Cambiar rol de miembro | ✔ | ✖ | ✖ | ✖ | `member.role_changed` |
 | Cambiar zona horaria del workspace | ✔ | ✖ | ✖ | ✖ | `workspace.timezone_changed` |
@@ -275,12 +293,33 @@ recibida, y queda constancia en `work_cycles.closed_without_review`.
 | Abrir ciclo / activarlo / cerrarlo / reabrirlo | ✔ | ✖ | ✖ | ✖ | `work_cycle.state_changed` |
 | Comentar en hilo accesible | ✔ | ✔ | ✔ | ✖ | `discussion.message_created` |
 | Marcar hilo como resuelto | ✔ | ✖ | ✖ | ✖ | `discussion.thread_resolved` |
-| Crear solicitud | ✔ | ✔ | ✔ | ✖ | `client_request.created` |
+| Crear solicitud | ✖ | ✖ | ✔ | ✖ | `client_request.created` |
 | Triar solicitud | ✔ | ✖ | ✖ | ✖ | `client_request.triaged` |
 | Confirmar lectura / aprobar / pedir cambios | ✖ | ✖ | ✔ | ✖ | `review.submitted` |
 | Registrar reunión y decisiones | ✔ | ✔ | ✖ | ✖ | `meeting.*` |
 | Proponer punto de agenda | ✔ | ✔ | ✔ | ✖ | `agenda_item.proposed` |
 | Leer auditoría | ✔ | ✖ | ✖ | ✖ | — |
+
+### 8.1 Correcciones de la iteración 2D
+
+**`K-26` · Crear workspace no es una acción acotada a workspace.** La fila calificaba por rol
+(«OWNER ✔ · MEMBER ✔»), y eso es imposible: el rol se define por membresía (`OD-11`, D-31), así que en
+el momento de crear un workspace el actor **no tiene rol alguno**. F1 lo dice bien: «Crear: cualquier
+usuario autenticado; queda `OWNER` del nuevo workspace». La fila se conserva por su evento de
+auditoría, con las cuatro columnas a `—`: es una acción de **identidad autenticada**, y por eso no
+existe ninguna capacidad `workspace.create` en §12.
+
+**`K-25` · Crear solicitud es exclusivo del `CLIENT`.** La fila decía «OWNER ✔ · MEMBER ✔ · CLIENT ✔»,
+contradiciendo la matriz de §5 —donde `client_requests` da a `OWNER` solo `R U (triaje)` y a `MEMBER`
+solo `R`— y contradiciendo la frase de §5 según la cual las cuatro celdas en negrita son *toda* la
+capacidad de escritura del cliente, `client_requests` entre ellas. Se resuelve a favor de §5 y de
+[`ADR-003`](decisions/ADR-003-client-interaction.md): la cola de solicitudes es un **canal del
+cliente**, y el propietario entra en ella por el triaje, no creando peticiones a sí mismo. En §12 esto
+separa `request.create` (solo `CLIENT`) de `collaboration.participate` (comentar y proponer agenda).
+
+**Archivado.** Ninguna fila de esta tabla se puede ejecutar en un workspace archivado salvo las de
+lectura: ver §12.3. La restauración de un workspace archivado **no tiene fila** porque nadie ha
+decidido todavía quién la ejecuta (`OD-19`).
 
 ## 9. Sesiones y autenticación (conceptual)
 
@@ -319,9 +358,13 @@ Tres capas, las tres obligatorias:
 
 1. **Resolución de workspace** — toda petición resuelve un workspace por su `public_id` y verifica
    pertenencia antes de tocar datos. Sin miembro activo → 404.
+   *Implementado en la iteración 2C:* `resolveWorkspaceAccess` → `WorkspaceAccessContext`.
 2. **Consulta** — todo acceso filtra por `workspace_id` y por la regla de §4.1, **según la clase de
    la entidad**. El filtro vive en la capa de datos, no en la interfaz.
+   *Mecanismo decidido en 2D:* `WorkspaceScope` obligatorio (§12.4). Sin verificar: no hay entidades
+   de negocio.
 3. **Acción** — cada comando comprueba el permiso de §8 y escribe su `audit_event`.
+   *Implementado en la iteración 2D:* `authorizeWorkspaceAction` con la capacidad de §12.
 
 Ocultar un botón en la interfaz **no es** un punto de aplicación.
 
@@ -329,6 +372,93 @@ Ocultar un botón en la interfaz **no es** un punto de aplicación.
 
 `OD-01` (granularidad de horas publicadas) · `OD-04` (despublicar) · `OD-06` (edición de mensajes) ·
 `OD-09` (correo y notificaciones, del que depende la recuperación de contraseña) ·
-`OD-17` (visibilidad de solicitudes y revisiones entre clientes del mismo workspace).
+`OD-17` (visibilidad de solicitudes y revisiones entre clientes del mismo workspace) ·
+`OD-19` (quién restaura un workspace archivado y mediante qué operación).
 
 Cerradas en la iteración 0.1: `OD-02`, `OD-03`, `OD-07`, `OD-08`, `OD-11`.
+Cerrada en la iteración 2D: `OD-18` (sin Row-Level Security; ver
+[`ADR-009`](decisions/ADR-009-workspace-authorization.md) §8).
+
+## 12. Capacidades (iteración 2D)
+
+Traducción ejecutable de §5 y §8. Las tablas anteriores describen el modelo; ésta es el **catálogo
+cerrado** que el código consume. Si las dos discrepan, es un defecto: la fuente de verdad es este
+documento y la prueba unitaria de la matriz lo comprueba con una tabla escrita a mano.
+
+Decidido en [`ADR-009`](decisions/ADR-009-workspace-authorization.md). Implementado en
+`src/application/authorization/`.
+
+### 12.1 Qué es y qué no es una capacidad
+
+Una capacidad es una **acción conceptual sobre un workspace**, no un endpoint ni un botón. El criterio
+de agrupación es el de §8: **una capacidad por fila distinta**. Dos acciones con el mismo conjunto de
+roles y el mismo efecto son una sola capacidad.
+
+No son capacidades, y no por olvido:
+
+- **Crear un workspace.** No hay contexto de workspace todavía, luego no hay rol que consultar
+  (§8.1, `K-26`). Es una acción de identidad autenticada.
+- **Restaurar un workspace archivado.** `OD-19`, abierta.
+- **`visibility` y `publication_state`.** Son filtros, no permisos (§1.4). La capacidad es *cambiarlos*
+  (`publication.manage`); *aplicarlos* es de la capa de datos (§10, punto 2).
+- **La propiedad del registro** (el `(p)` de §5). Depende del registro, no del actor: es un filtro de
+  fila y vive en la capa de datos.
+
+### 12.2 Matriz rol → capacidad
+
+| Capacidad | Acción conceptual | OWNER | MEMBER | CLIENT | VIEWER | Efecto | Justificación |
+|---|---|:--:|:--:|:--:|:--:|---|---|
+| `workspace.read` | Leer la cabecera del workspace (nombre, zona) | ✔ | ✔ | ✔ | ✔ | READ | §5 fila `workspaces`; §4.1 tras `K-24` |
+| `workspace.manage` | Ajustes, zona horaria, archivar | ✔ | ✖ | ✖ | ✖ | MUTATION | §8 «Cambiar zona horaria»; §5 `U D` |
+| `membership.read` | Listar los miembros | ✔ | ✖ | ✖ | ✖ | READ | §4.1 y §7.1 tras `K-24` |
+| `membership.manage` | Invitar, quitar, cambiar rol | ✔ | ✖ | ✖ | ✖ | MUTATION | §8 filas 2 y 3 |
+| `audit.read` | Leer la auditoría | ✔ | ✖ | ✖ | ✖ | READ | §8 «Leer auditoría» |
+| `work.record` | Registrar trabajo: items, sesiones, tiempo, evidencias | ✔ | ✔ | ✖ | ✖ | MUTATION | §8 filas de sesión, tiempo, item de ciclo y evidencia |
+| `publication.manage` | Cambiar `visibility`, publicar/despublicar, transicionar el ciclo | ✔ | ✖ | ✖ | ✖ | MUTATION | §8 tres filas, todas solo OWNER |
+| `collaboration.participate` | Comentar en hilo accesible, proponer punto de agenda | ✔ | ✔ | ✔ | ✖ | MUTATION | §8 dos filas idénticas `✔ ✔ ✔ ✖` |
+| `request.create` | Registrar una solicitud en la cola del cliente | ✖ | ✖ | ✔ | ✖ | MUTATION | §5 fila `client_requests`; §8.1 (`K-25`); `ADR-003` |
+| `request.triage` | Triar una solicitud | ✔ | ✖ | ✖ | ✖ | MUTATION | §8 «Triar solicitud» |
+| `review.submit` | Confirmar lectura, aprobar, pedir cambios | ✖ | ✖ | ✔ | ✖ | MUTATION | §8 fila `✖ ✖ ✔ ✖`; §7.2 |
+
+Once capacidades, cinco formas de fila distintas. Dos filas merecen atención porque descartan
+cualquier atajo por `OWNER`: **`review.submit` y `request.create` están denegadas para `OWNER`** y
+permitidas para `CLIENT`. Enviar una revisión en nombre del cliente es exactamente lo que §7.2
+prohíbe.
+
+Y como el rol es por membresía (D-31), la misma persona puede tener `publication.manage` en un
+workspace y no tenerlo en otro. No existe rol global.
+
+**El tipo de workspace no aparece en esta matriz.** `PERSONAL`, `CLIENT` y `BUSINESS` son intención,
+no permiso (D-09): los permisos vienen del rol.
+
+### 12.3 Workspace archivado
+
+Regla general, no repetida por capacidad:
+
+```
+capacidad READ      -> permitida
+capacidad MUTATION  -> denegada
+```
+
+Es la imposición que D-34 dejó para esta iteración: un workspace archivado con membresía activa
+**concede** contexto, y la restricción a solo lectura se aplica aquí, no en la resolución de acceso y
+menos en la interfaz.
+
+**El rol se evalúa antes del archivado.** Un `CLIENT` que intenta `publication.manage` en un workspace
+archivado es una denegación **por rol**. Si se dijera «archivado», se le estaría informando de que su
+rol sí tendría esa capacidad en un workspace activo.
+
+Ninguna capacidad restaura un workspace archivado: `OD-19`.
+
+### 12.4 Alcance de la capa de datos
+
+Una capacidad concedida produce un `WorkspaceScope` con exactamente tres campos:
+
+```
+workspaceId   el uuid interno, con marca de tipo; nunca el public_id
+userId        el actor
+role          para el filtro de visibilidad (§10 punto 2) y para audit_events.actor_role
+```
+
+Es la única forma de obtener un scope, y toda función de repositorio de negocio lo exigirá como primer
+parámetro (`ADR-005` §3.6 y T5-R5). Tener un scope **es** la prueba de haber sido autorizado.

@@ -156,15 +156,67 @@ dar un mensaje útil, y la base sigue siendo la red de seguridad.
 workspace** ya resuelto, y las funciones de repositorio toman ese contexto como primer parámetro
 obligatorio. Una consulta sin contexto no compila.
 
-```
-// forma conceptual, no código de producción
-type WorkspaceScope = { workspaceId: WorkspaceId; actor: Actor; tx: Tx }
-findCycles(scope: WorkspaceScope, filters): Promise<WorkCycle[]>
+#### 3.6.1 Forma definitiva del `WorkspaceScope` (iteración 2D)
+
+La forma conceptual de este ADR era `{ workspaceId, actor, tx }`. Al implementarla en la iteración 2D
+se corrigieron tres puntos, y esta es la forma vigente
+([`ADR-009`](ADR-009-workspace-authorization.md) §7, `src/application/access/workspace-scope.ts`):
+
+```ts
+type WorkspaceId = string & { readonly [workspaceIdBrand]: never };
+
+type WorkspaceScope = {
+  readonly workspaceId: WorkspaceId;   // uuid interno, con marca de tipo
+  readonly userId: string;             // antes «actor»: ambiguo
+  readonly role: WorkspaceRole;        // para el filtro de visibilidad y audit_events.actor_role
+};
+
+createWorkspaceScope(context: WorkspaceAccessContext): WorkspaceScope
 ```
 
-Se evalúa **Row-Level Security** de PostgreSQL como refuerzo adicional en la iteración 2. No se
-adopta todavía como decisión: RLS con un usuario de aplicación único exige propagar el actor por
-variable de sesión, y hacerlo mal da una falsa sensación de seguridad. Queda como **`OD-18`**.
+| Corrección | Motivo |
+|---|---|
+| `actor` → **`userId`** | «Actor» no dice si es el usuario, su rol o el sistema. `userId` coincide con D-35 y con `workspace_members.user_id` |
+| **`role` añadido** | Lo necesitan el filtro de visibilidad, que `ROLES-AND-PERMISSIONS.md` §10 sitúa en la capa de datos, y `audit_events.actor_role`, que congela el rol del momento del hecho. Filtrar y auditar no es autorizar |
+| **`tx` retirado del scope** | Exigirla obligaría a abrir una transacción para cada lectura, o a inventar una transacción nula. §4 ya dice que el servicio de aplicación abre la transacción y la propaga: se compondrá con el scope cuando exista la **primera operación real** que la necesite, y no antes |
+
+El scope **no** lleva `workspaceStatus` —el bloqueo de escritura del workspace archivado ya se aplicó
+antes, y repetirlo aquí violaría T5-R12— ni capacidades: un repositorio con capacidades es un segundo
+motor de políticas.
+
+La marca de tipo de `workspaceId` es lo que convierte A7 y D-36 en una comprobación del compilador: un
+identificador llegado de una ruta **no compila** donde se espera un `WorkspaceId`. El único `as` vive en
+`createWorkspaceScope`, cuya única entrada posible es un `WorkspaceAccessContext`.
+
+#### 3.6.2 Contrato de las funciones de repositorio
+
+```ts
+findResource(scope: WorkspaceScope, publicId: string): Promise<Resource | null>
+```
+
+```sql
+WHERE workspace_id = scope.workspaceId
+  AND public_id    = $2
+```
+
+Prohibido, y las tres cosas son la misma:
+
+- **Buscar globalmente y comparar el `workspace_id` después.** Es correcto solo mientras nadie olvide
+  la comparación, y para cuando ésta corre la fila ajena ya está en memoria del proceso, a un mensaje
+  de error de distancia. El `WHERE` conjunto hace del aislamiento una propiedad de la consulta.
+- **Aceptar un `workspaceId` suelto** desde una ruta, un cuerpo o un parámetro de búsqueda.
+- **Consultar sin scope.**
+
+Un recurso ajeno y un recurso inexistente devuelven ambos `null`, y la capa de aplicación los traduce
+al **mismo** 404 (`ADR-002` A9).
+
+#### 3.6.3 Row-Level Security
+
+`OD-18` quedó **cerrada en negativo** en la iteración 2D: no se adopta RLS en el MVP actual. El pool
+comparte un usuario de aplicación y ninguna transacción propaga el actor por `SET LOCAL`; RLS parcial
+daría una falsa seguridad peor que no tenerla. El aislamiento primario es el de §3.6.1 y §3.6.2 más las
+pruebas de `ADR-008` §3.5. Motivos completos y condiciones de reevaluación en
+[`ADR-009`](ADR-009-workspace-authorization.md) §8.
 
 ## 4. Transacciones entre módulos sin acceso a tablas ajenas
 
@@ -241,6 +293,8 @@ Drizzle lo permite porque la transacción es un valor que se pasa, no un estado 
 | T5-R10 | Ninguna extensión de PostgreSQL fuera de las habituales en servicios administrados sin ADR nuevo. |
 | T5-R11 | Un módulo escribe únicamente sus propias tablas, aunque comparta transacción. |
 | T5-R12 | Una invariante vive en **un** nivel de §3.5, salvo la excepción de mensaje de error allí descrita. |
+| **T5-R13** | Un recurso se localiza **dentro** del workspace del scope: `workspace_id = scope.workspaceId` va en el `WHERE`. Buscar globalmente y comparar después está prohibido (§3.6.2). |
+| **T5-R14** | El `WorkspaceScope` no lleva transacción. La unidad de trabajo se compone con él cuando una operación la necesite (§3.6.1 y §4). |
 
 ## 8. Criterios verificables
 
@@ -263,7 +317,11 @@ Drizzle lo permite porque la transacción es un valor que se pasa, no un estado 
   coste es reescribir consultas, no mover datos.
 - **PostgreSQL 19 con disponibilidad general y soporte del servicio administrado** → revisar §3.1.
 - **Aparece un requisito de consulta entre workspaces** → revisar §3.6 y `ADR-002` §7 juntos.
-- **RLS se considera necesaria** → cerrar `OD-18` con su propio ADR.
+- **RLS se considera necesaria** → `OD-18` ya se cerró en negativo en
+  [`ADR-009`](ADR-009-workspace-authorization.md) §8. Reabrirla exige un ADR nuevo, y las condiciones
+  que lo dispararían están enumeradas allí.
+- **Aparece la primera operación que abarca dos módulos** → decidir la forma de la composición
+  `scope` + transacción (§3.6.1, T5-R14).
 
 ## 10. Fuentes oficiales consultadas
 

@@ -104,10 +104,16 @@ que cruce a `internal/` de otro módulo **falla la compilación**.
 Usuarios, sesiones, workspaces, miembros, conmutador. La regla de §3.5 de
 [`ROLES-AND-PERMISSIONS.md`](ROLES-AND-PERMISSIONS.md) aplicada en la capa de datos. `DEMO_MODE`.
 
-*Terminado cuando:* se cumplen las **ocho** reglas verificables A1–A8 de
+*Terminado cuando:* se cumplen las **diez** reglas verificables A1–A10 de
 [`ADR-002`](decisions/ADR-002-workspace-boundary.md), comprobadas con pruebas automatizadas —
-incluidas A7 (rutas por `public_id` opaco) y A8 (ninguna validación revela workspaces ajenos).
+incluidas A7 (rutas por `public_id` opaco), A8 (ninguna validación revela workspaces ajenos), A9
+(workspace inexistente, ajeno y sin capacidad son indistinguibles) y A10 (el archivado no es un 404).
 Esta es la iteración que no se puede hacer mal.
+
+**Estado:** 2A, 2B y 2C fusionadas; 2D (autorización por acción y `WorkspaceScope`) en curso.
+`A3`, `A6`, `A7`, `A9` y `A10` están verificadas. **`A2` sigue sin verificar** y no se puede verificar
+todavía: exige una entidad de contenido cuyo filtrado por `workspace_id` comprobar, y la iteración 3 es
+la que las crea. El mecanismo está decidido (`WorkspaceScope`, `ADR-005` §3.6); su cumplimiento, no.
 
 ### Iteración 3 — Registro de trabajo
 
@@ -180,7 +186,7 @@ iteración 8 obliga a rehacer las capas intermedias.
 |---|---|
 | Iteración 1 | *(ninguna: `OD-07` se cerró en la 0.1)* — **completada** |
 | Iteración 1.5 | *(ninguna)* |
-| Iteración 2 | `OD-18` Row-Level Security como refuerzo — decidible dentro de la propia iteración |
+| Iteración 2 | *(ninguna: `OD-18` se cerró en 2D sin adoptar RLS — [`ADR-009`](decisions/ADR-009-workspace-authorization.md) §8)* |
 | Iteración 3 | *(ninguna: `OD-08` se cerró en la 0.1)* |
 | Iteración 4 | `OD-01` agregación de horas · `OD-04` despublicar |
 | Iteración 5 | `OD-12` retención de auditoría · `OD-17` visibilidad entre clientes |
