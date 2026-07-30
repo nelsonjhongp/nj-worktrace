@@ -51,6 +51,9 @@ export const workspaceMembersRelations = relations(workspaceMembers, ({ one }) =
   }),
 }));
 
+export type WorkspaceRole = (typeof memberRoleEnum.enumValues)[number];
+export type WorkspaceMemberStatus = (typeof memberStatusEnum.enumValues)[number];
+
 export type Workspace = typeof workspaces.$inferSelect;
 export type NewWorkspace = typeof workspaces.$inferInsert;
 export type WorkspaceMember = typeof workspaceMembers.$inferSelect;

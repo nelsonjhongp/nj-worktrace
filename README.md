@@ -3,9 +3,10 @@
 Aplicación personal **multiespacio** para trazabilidad de trabajo y colaboración controlada con
 clientes.
 
-> **Estado: esquema de identidad y workspaces (iteración 2A).** Esquema de base de datos con tablas
-> `domain_users`, `workspaces` y `workspace_members`, migraciones versionadas y pruebas de integración.
-> La autenticación y la interfaz todavía no están implementadas.
+> **Estado: contexto de acceso a workspace (iteración 2C).** Esquema con `domain_users`,
+> `workspaces` y `workspace_members`, migraciones versionadas, autenticación con Better Auth y
+> sesiones en PostgreSQL, y resolución server-side del contexto de acceso a un workspace. La
+> autorización por acción (iteración 2D) y la interfaz todavía no están implementadas.
 
 ## El problema
 
